@@ -43,12 +43,25 @@ SKILL.md                              router - mode table + default loop + refer
 reference/
   mock-loop.md                        the perform-first / reveal-after loop contract
   system-design-rubric.md             10-dimension grading rubric + probing bank
-  system-design-model-answer.md       SYSTEM-DESIGN ground truth (reveal only at Grade)
+  system-design-model-answer.html     SYSTEM-DESIGN ground truth (polished HTML; reveal at Grade)
+  system-design-model-answer.md       ground-truth source text (verbatim)
   rubrics.md                          BEHAVIORAL (STAR) + CODING rubrics, PLAN
 agents/
   interviewer.md                      terse probing interviewer persona
   critic.md                           independent rubric grader + re-drill designer
+templates/
+  model-answer.html                   reusable HTML shell for any system-design model answer
+examples/
+  twitter-news-feed.html              a generated HTML model answer (novel question)
 ```
+
+## Model answers are HTML
+
+Every system-design model answer is delivered as a polished standalone HTML page (self-contained,
+inline CSS, no external deps), revealed at Grade for self-comparison. For a stored canonical answer
+the HTML already exists (`reference/system-design-model-answer.html`); for a novel question the
+critic generates a fresh one at Grade from `templates/model-answer.html`. Answers are never handed
+out as raw markdown or before the user has performed their own full answer.
 
 ## Why perform-first
 

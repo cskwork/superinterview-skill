@@ -44,7 +44,7 @@ phase loads only the reference it needs.
 
 | Signal in the objective | Mode | Route |
 |---|---|---|
-| design X / system design / design a platform / scalable / 설계 | SYSTEM-DESIGN | mock loop + `reference/system-design-rubric.md`; ground truth = `reference/system-design-model-answer.md` (flagship) |
+| design X / system design / design a platform / scalable / 설계 | SYSTEM-DESIGN | mock loop + `reference/system-design-rubric.md`; ground truth = `reference/system-design-model-answer.html` (flagship) |
 | behavioral / tell me about a time / STAR / conflict / leadership | BEHAVIORAL | mock loop + `reference/rubrics.md` (STAR) |
 | coding / algorithm / data structure / leetcode / implement | CODING | mock loop + `reference/rubrics.md` (coding) |
 | mock / simulate / practice round / 모의 면접 | MOCK | full timed simulation; infer type or ask once |
@@ -71,7 +71,9 @@ single quick GRADE of one short answer runs inline. Full contract: `reference/mo
    failure path, ask for scale math, demand a deep dive. This is where depth is tested.
 5. **Grade.** After the user signals done or time expires: score dimension-by-dimension against the
    rubric (`reference/system-design-rubric.md` / `reference/rubrics.md`), name the FIRST gap with a
-   concrete fix, THEN reveal the model answer for self-comparison. The independent critic persona
+   concrete fix, THEN reveal the model answer as a polished standalone HTML page for self-comparison
+   (built from `templates/model-answer.html`). For a novel question with no stored answer, generate a
+   fresh HTML model answer at Grade from the template. The independent critic persona
    (`agents/critic.md`) supplies the gap detection the performer's self-review misses.
 6. **Re-drill.** Pose a NOVEL variant that re-tests the weakest dimension (different system / question
    / constraint). Confirm transfer, not recall. Stop when the dimension clears unprompted.
@@ -86,9 +88,13 @@ Roles -> personas: interviewer=`agents/interviewer.md`, grader=`agents/critic.md
 | `agents/interviewer.md` | Pose + Probe: the terse, probing interviewer persona |
 | `agents/critic.md` | Grade: rubric scorer + gap finder (independent of the performer) |
 | `reference/system-design-rubric.md` | SYSTEM-DESIGN: 10-dimension grading rubric + probing-question bank |
-| `reference/system-design-model-answer.md` | SYSTEM-DESIGN ground truth - reveal only at Grade |
+| `reference/system-design-model-answer.html` | SYSTEM-DESIGN ground truth (polished HTML) - reveal only at Grade |
+| `reference/system-design-model-answer.md` | SYSTEM-DESIGN ground-truth source text (verbatim) |
+| `templates/model-answer.html` | reusable HTML shell for generating any system-design model answer |
+| `examples/twitter-news-feed.html` | a generated HTML model answer (novel question), for reference |
 | `reference/rubrics.md` | BEHAVIORAL (STAR) + CODING rubrics, probing banks, and PLAN structure |
 
 **Done =** mode stated; user performed the full answer under realistic time before any reveal;
 dimension-scored against the matching rubric; FIRST gap named with a concrete fix; model answer
-revealed for self-comparison; weakest dimension re-drilled on a novel variant and cleared unprompted.
+revealed as a polished standalone HTML page for self-comparison; weakest dimension re-drilled on a
+novel variant and cleared unprompted.

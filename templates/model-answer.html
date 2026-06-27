@@ -1,0 +1,239 @@
+<!--
+  superinterview - SYSTEM-DESIGN model-answer HTML template
+  =========================================================
+  HOW TO USE: copy this file, fill the {{PLACEHOLDERS}}, keep the <style> block verbatim.
+  A model answer is ALWAYS generated as a standalone self-contained HTML file (inline CSS, no
+  external deps) so it renders anywhere and is revealed at Grade as a polished artifact.
+
+  Required sections map 1:1 to the 10-dimension rubric (reference/system-design-rubric.md):
+  01 Requirements | 02 Capacity | 03 Architecture | 04 Core flow | 05 Data model
+  06 Deep dive | 07 Hot-path/bottleneck | 08 Scalability | 09 Consistency & failure
+  10 Trade-offs | 11 Observability | 12 Summary
+
+  Calibrate DEPTH to the target level set at Frame (junior/mid/senior/staff). The .staff callout
+  is where you surface the cross-system constraint reasoning that separates staff from senior.
+-->
+<!DOCTYPE html>
+<html lang="{{lang|ko}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design Model Answer - {{TITLE}}</title>
+<style>
+  :root{
+    --bg:#0f1419; --surface:#161b22; --surface-2:#1c232c; --border:#2a3340;
+    --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#6b7785;
+    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14);
+    --green:#3fb950; --green-soft:rgba(63,185,80,.13);
+    --amber:#d29922; --amber-soft:rgba(210,153,34,.13);
+    --red:#f85149; --red-soft:rgba(248,81,73,.12);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',Roboto,sans-serif;
+    line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased;}
+  .layout{display:flex;max-width:1180px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;flex:0 0 240px;
+    padding:32px 20px;border-right:1px solid var(--border);font-size:13.5px;}
+  nav.toc .brand{font-weight:700;font-size:14px;margin-bottom:4px}
+  nav.toc .brand .sig{color:var(--accent)}
+  nav.toc .meta{font-size:11.5px;color:var(--text-mute);margin-bottom:24px;line-height:1.5}
+  nav.toc ol{list-style:none;counter-reset:sec}
+  nav.toc ol li{counter-increment:sec}
+  nav.toc ol li a{display:block;color:var(--text-dim);text-decoration:none;padding:5px 0 5px 26px;
+    position:relative;border-radius:6px;transition:color .15s,background .15s;}
+  nav.toc ol li a::before{content:counter(sec,decimal-leading-zero);position:absolute;left:0;color:var(--text-mute);font-family:var(--mono);font-size:11px}
+  nav.toc ol li a:hover{color:var(--text);background:var(--surface)}
+  nav.toc ol li a.active{color:var(--accent);font-weight:600}
+  nav.toc .tag{display:inline-block;font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:4px;margin-top:18px;background:var(--amber-soft);color:var(--amber)}
+  main{flex:1;min-width:0;padding:48px 56px 120px;max-width:860px}
+  header.title{margin-bottom:44px;padding-bottom:28px;border-bottom:1px solid var(--border)}
+  header.title .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
+  header.title h1{font-size:34px;font-weight:800;line-height:1.18;letter-spacing:-.02em;margin-bottom:10px;word-break:keep-all}
+  header.title .lede{color:var(--text-dim);font-size:16.5px;word-break:keep-all}
+  header.title .pills{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{font-family:var(--mono);font-size:11.5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text-dim);background:var(--surface)}
+  .pill.hot{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+  section{margin-bottom:56px;scroll-margin-top:24px}
+  section h2{display:flex;align-items:baseline;gap:14px;font-size:23px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+  section h2 .num{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:600}
+  section h3{font-size:16px;font-weight:700;margin:22px 0 10px}
+  p{margin-bottom:14px;color:var(--text-dim)}
+  p strong,li strong{color:var(--text);font-weight:600}
+  ul,ol{margin:0 0 16px 4px;padding-left:22px}
+  li{margin-bottom:7px;color:var(--text-dim)}li::marker{color:var(--text-mute)}
+  code{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:1.5px 6px;border-radius:4px;color:var(--accent)}
+  .inline-mono{font-family:var(--mono);font-size:13px;color:var(--text)}
+  .callout{border-radius:10px;padding:18px 20px;margin:18px 0;border:1px solid var(--border);background:var(--surface)}
+  .callout .label{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;font-weight:600}
+  .callout.capacity{border-color:rgba(59,130,246,.3);background:var(--accent-soft)}.callout.capacity .label{color:var(--accent)}
+  .callout.tradeoff{border-color:rgba(210,153,34,.3);background:var(--amber-soft)}.callout.tradeoff .label{color:var(--amber)}
+  .callout.staff{border-color:rgba(63,185,80,.3);background:var(--green-soft)}.callout.staff .label{color:var(--green)}
+  .callout.fail{border-color:rgba(248,81,73,.25);background:var(--red-soft)}.callout.fail .label{color:var(--red)}
+  .callout p:last-child,.callout li:last-child{margin-bottom:0}.callout ul{margin-bottom:0}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .metric .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+  .metric .k{font-size:12px;color:var(--text-mute);margin-top:4px;line-height:1.4}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  .cmp .col{border:1px solid var(--border);border-radius:12px;padding:18px 20px;background:var(--surface)}
+  .cmp .col h4{font-family:var(--mono);font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .cmp .col.push h4{color:var(--green)}.cmp .col.pull h4{color:var(--amber)}
+  .cmp .col h4 .dot{width:9px;height:9px;border-radius:50%;background:currentColor;display:inline-block}
+  .cmp .col ul{padding-left:18px;font-size:14px}
+  .diagram{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:18px 0;font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--text-dim);overflow-x:auto}
+  .diagram .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+  .node{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:7px 13px;background:var(--surface-2);color:var(--text);white-space:nowrap}
+  .node.accent{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .node.green{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+  .node.amber{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+  .arrow{color:var(--text-mute)}
+  .diagram .layer-label{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;text-align:center}
+  .schema{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
+  .table-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+  .table-card .tname{font-family:var(--mono);font-size:13px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--accent);font-weight:600}
+  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid rgba(42,51,64,.5)}
+  .table-card .field:last-child{border-bottom:none}
+  .table-card .field .pk{color:var(--green)}.table-card .field .idx{color:var(--amber)}
+  footer.foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-mute)}
+  @media (max-width:920px){.layout{flex-direction:column}nav.toc{position:relative;height:auto;flex:none;border-right:none;border-bottom:1px solid var(--border);padding:20px}main{padding:32px 22px 80px}.cmp{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc">
+  <div class="brand"><span class="sig">/</span>superinterview</div>
+  <div class="meta">SYSTEM-DESIGN<br>model answer<br>bar: {{LEVEL}}</div>
+  <span class="tag">GROUND TRUTH</span>
+  <ol>
+    <li><a href="#s1">요구사항 정의</a></li>
+    <li><a href="#s2">용량 추정</a></li>
+    <li><a href="#s3">전체 아키텍처</a></li>
+    <li><a href="#s4">핵심 플로우</a></li>
+    <li><a href="#s5">데이터 모델</a></li>
+    <li><a href="#s6">딥다이브</a></li>
+    <li><a href="#s7">핫패스/병목</a></li>
+    <li><a href="#s8">스케일</a></li>
+    <li><a href="#s9">정합성 &amp; 장애</a></li>
+    <li><a href="#s10">트레이드오프</a></li>
+    <li><a href="#s11">관측가능성</a></li>
+    <li><a href="#s12">요약</a></li>
+  </ol>
+</nav>
+<main>
+<header class="title">
+  <div class="eyebrow">System Design Interview / Model Answer</div>
+  <h1>{{TITLE}}</h1>
+  <p class="lede">{{ONE_LINE_THESIS - the key tension / decision of this system}}</p>
+  <div class="pills">
+    <span class="pill hot">{{KEY_TRADEOFF}}</span>
+    <span class="pill">{{TRAITS}}</span>
+    <span class="pill">~45 min</span>
+  </div>
+</header>
+
+<!-- 01 REQUIREMENTS: functional + non-functional + scope boundaries. Staff: ask ambiguity Qs first. -->
+<section id="s1">
+  <h2><span class="num">01</span>요구사항 정의</h2>
+  <p>{{scope + core flow}}</p>
+  <h3>기능적 요구사항</h3>
+  <ul><li>{{...}}</li></ul>
+  <h3>비기능적 요구사항</h3>
+  <ul><li>{{availability / latency / consistency / spikes}}</li></ul>
+  <!-- OPTIONAL staff callout: ambiguity-navigation signal -->
+  <div class="callout staff"><div class="label">Staff signal</div><p>{{what ambiguity to surface first}}</p></div>
+</section>
+
+<!-- 02 CAPACITY: back-of-envelope. Capture the read:write asymmetry - it drives the design. -->
+<section id="s2">
+  <h2><span class="num">02</span>용량 추정</h2>
+  <div class="metrics">
+    <div class="metric"><div class="v">{{N}}</div><div class="k">{{label}}</div></div>
+  </div>
+  <div class="callout capacity"><div class="label">저장 추정</div><ul><li>{{storage}}</li></ul></div>
+  <p>{{conclusion: which path is dominant}}</p>
+</section>
+
+<!-- 03 ARCHITECTURE: separate read path from write path. Diagram in .diagram blocks. -->
+<section id="s3">
+  <h2><span class="num">03</span>전체 아키텍처</h2>
+  <div class="diagram"><!-- .node .arrow .layer-label blocks --></div>
+  <p>{{read vs write separation rationale}}</p>
+</section>
+
+<!-- 04 CORE FLOW: the happy path, step by step. Mark where sync ends and async begins. -->
+<section id="s4">
+  <h2><span class="num">04</span>핵심 플로우</h2>
+  <h3>{{write path}}</h3><ol><li>{{...}}</li></ol>
+  <h3>{{read path}}</h3><ol><li>{{...}}</li></ol>
+</section>
+
+<!-- 05 DATA MODEL: tables, indexes, the right store per domain. State machine if applicable. -->
+<section id="s5">
+  <h2><span class="num">05</span>데이터 모델</h2>
+  <div class="schema"><!-- .table-card --></div>
+</section>
+
+<!-- 06 DEEP DIVE: THE central tradeoff/mechanism. This is where senior vs staff separates. -->
+<section id="s6">
+  <h2><span class="num">06</span>딥다이브: {{topic}}</h2>
+  <div class="cmp"><div class="col push"><h4><span class="dot"></span>{{option A}}</h4><ul><li>{{...}}</li></ul></div>
+  <div class="col pull"><h4><span class="dot"></span>{{option B}}</h4><ul><li>{{...}}</li></ul></div></div>
+  <div class="callout tradeoff"><div class="label">트레이드오프</div><p>{{why this boundary / what it constrains}}</p></div>
+</section>
+
+<!-- 07 HOT PATH: the worst-case load (celebrity, spike, hot-key) and mitigation. -->
+<section id="s7">
+  <h2><span class="num">07</span>{{hot-path / celebrity problem}}</h2>
+  <div class="callout fail"><div class="label">완화책</div><ul><li>{{...}}</li></ul></div>
+</section>
+
+<!-- 08 SCALABILITY: top bottlenecks mapped to mitigations. Note bottlenecks MOVE, not vanish. -->
+<section id="s8">
+  <h2><span class="num">08</span>스케일 &amp; 병목</h2>
+  <ul><li><strong>{{bottleneck}}</strong> → {{mitigation}}</li></ul>
+  <div class="callout staff"><div class="label">Staff signal - 병목의 이동</div><p>{{how fixing one moves the bottleneck}}</p></div>
+</section>
+
+<!-- 09 CONSISTENCY & FAILURE: consistency model per domain + failure paths. Most-thinned dimension. -->
+<section id="s9">
+  <h2><span class="num">09</span>정합성 &amp; 장애 처리</h2>
+  <div class="callout fail"><div class="label">장애 시나리오</div><ul><li>{{...}}</li></ul></div>
+  <div class="callout staff"><div class="label">Staff signal - 정합성 경계</div><p>{{where the consistency boundary is drawn and why}}</p></div>
+</section>
+
+<!-- 10 TRADE-OFFS: explicit C-vs-A, latency-vs-reliability, cost reasoning. -->
+<section id="s10">
+  <h2><span class="num">10</span>트레이드오프 분석</h2>
+  <ul><li><strong>{{axis}}</strong>: {{choice + why}}</li></ul>
+</section>
+
+<!-- 11 OBSERVABILITY: metrics that matter, tracing, alerting, feature flags. -->
+<section id="s11">
+  <h2><span class="num">11</span>관측가능성 &amp; 운영</h2>
+  <ul><li><strong>지표</strong>: {{p50/p95/p99, lag, hit-rate}}</li></ul>
+</section>
+
+<!-- 12 SUMMARY: the one decision that mattered, restated. -->
+<section id="s12">
+  <h2><span class="num">12</span>요약</h2>
+  <p>{{core decision + why + cross-system constraint}}</p>
+  <div class="callout tradeoff"><div class="label">한 줄 정합성 입장</div><p>{{per-domain consistency in one line}}</p></div>
+</section>
+
+<footer class="foot">
+  superinterview / SYSTEM-DESIGN model answer - {{TITLE}}. {{LEVEL}} bar.
+  ground-truth reference; revealed at Grade only. 비교용이지 유일한 정답이 아니다.
+</footer>
+</main>
+</div>
+<script>
+  const links=[...document.querySelectorAll('nav.toc a')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const m=links.find(l=>l.getAttribute('href')==='#'+e.target.id);if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(s=>s&&obs.observe(s));
+</script>
+</body>
+</html>

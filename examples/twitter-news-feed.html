@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design Model Answer - Twitter News Feed</title>
+<style>
+  :root{
+    --bg:#0f1419; --surface:#161b22; --surface-2:#1c232c; --border:#2a3340;
+    --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#6b7785;
+    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14);
+    --green:#3fb950; --green-soft:rgba(63,185,80,.13);
+    --amber:#d29922; --amber-soft:rgba(210,153,34,.13);
+    --red:#f85149; --red-soft:rgba(248,81,73,.12);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',Roboto,'Helvetica Neue',Arial,sans-serif;
+    line-height:1.7;font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .layout{display:flex;max-width:1180px;margin:0 auto;gap:0}
+  /* sidebar */
+  nav.toc{
+    position:sticky;top:0;align-self:flex-start;
+    height:100vh;overflow-y:auto;flex:0 0 240px;
+    padding:32px 20px;border-right:1px solid var(--border);
+    font-size:13.5px;
+  }
+  nav.toc .brand{font-weight:700;font-size:14px;letter-spacing:.02em;margin-bottom:4px;color:var(--text)}
+  nav.toc .brand .sig{color:var(--accent)}
+  nav.toc .meta{font-size:11.5px;color:var(--text-mute);margin-bottom:24px;line-height:1.5}
+  nav.toc ol{list-style:none;counter-reset:sec}
+  nav.toc ol li{counter-increment:sec}
+  nav.toc ol li a{
+    display:block;color:var(--text-dim);text-decoration:none;
+    padding:5px 0 5px 26px;position:relative;border-radius:6px;
+    transition:color .15s,background .15s;
+  }
+  nav.toc ol li a::before{content:counter(sec,decimal-leading-zero);position:absolute;left:0;color:var(--text-mute);font-family:var(--mono);font-size:11px}
+  nav.toc ol li a:hover{color:var(--text);background:var(--surface)}
+  nav.toc ol li a.active{color:var(--accent);font-weight:600}
+  nav.toc .tag{display:inline-block;font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:4px;margin-top:18px;margin-bottom:4px;background:var(--amber-soft);color:var(--amber)}
+  /* main */
+  main{flex:1;min-width:0;padding:48px 56px 120px;max-width:860px}
+  header.title{margin-bottom:44px;padding-bottom:28px;border-bottom:1px solid var(--border)}
+  header.title .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
+  header.title h1{font-size:34px;font-weight:800;line-height:1.18;letter-spacing:-.02em;margin-bottom:10px;word-break:keep-all}
+  header.title .lede{color:var(--text-dim);font-size:16.5px;word-break:keep-all}
+  header.title .pills{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{font-family:var(--mono);font-size:11.5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text-dim);background:var(--surface)}
+  .pill.hot{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+
+  section{margin-bottom:56px;scroll-margin-top:24px}
+  section h2{display:flex;align-items:baseline;gap:14px;font-size:23px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+  section h2 .num{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:600}
+  section h3{font-size:16px;font-weight:700;color:var(--text);margin:22px 0 10px}
+  p{margin-bottom:14px;color:var(--text-dim)}
+  p strong, li strong{color:var(--text);font-weight:600}
+  ul,ol{margin:0 0 16px 4px;padding-left:22px}
+  li{margin-bottom:7px;color:var(--text-dim)}
+  li::marker{color:var(--text-mute)}
+  code{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:1.5px 6px;border-radius:4px;color:var(--accent)}
+  .inline-mono{font-family:var(--mono);font-size:13px;color:var(--text)}
+
+  /* callouts */
+  .callout{border-radius:10px;padding:18px 20px;margin:18px 0;border:1px solid var(--border);background:var(--surface)}
+  .callout .label{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;font-weight:600}
+  .callout.capacity{border-color:rgba(59,130,246,.3);background:var(--accent-soft)}
+  .callout.capacity .label{color:var(--accent)}
+  .callout.tradeoff{border-color:rgba(210,153,34,.3);background:var(--amber-soft)}
+  .callout.tradeoff .label{color:var(--amber)}
+  .callout.staff{border-color:rgba(63,185,80,.3);background:var(--green-soft)}
+  .callout.staff .label{color:var(--green)}
+  .callout.fail{border-color:rgba(248,81,73,.25);background:var(--red-soft)}
+  .callout.fail .label{color:var(--red)}
+  .callout p:last-child,.callout li:last-child{margin-bottom:0}
+  .callout ul{margin-bottom:0}
+
+  /* metric grid */
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .metric .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+  .metric .k{font-size:12px;color:var(--text-mute);margin-top:4px;line-height:1.4}
+
+  /* comparison table */
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  .cmp .col{border:1px solid var(--border);border-radius:12px;padding:18px 20px;background:var(--surface)}
+  .cmp .col h4{font-family:var(--mono);font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .cmp .col.push h4{color:var(--green)}
+  .cmp .col.pull h4{color:var(--amber)}
+  .cmp .col h4 .dot{width:9px;height:9px;border-radius:50%;background:currentColor;display:inline-block}
+  .cmp .col ul{padding-left:18px;font-size:14px}
+
+  /* architecture diagram */
+  .diagram{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:18px 0;font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--text-dim);overflow-x:auto}
+  .diagram .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+  .node{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:7px 13px;background:var(--surface-2);color:var(--text);white-space:nowrap}
+  .node.accent{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .node.green{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+  .node.amber{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+  .arrow{color:var(--text-mute)}
+  .diagram .layer-label{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;text-align:center}
+
+  /* schema */
+  .schema{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
+  .table-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+  .table-card .tname{font-family:var(--mono);font-size:13px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--accent);font-weight:600}
+  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid rgba(42,51,64,.5)}
+  .table-card .field:last-child{border-bottom:none}
+  .table-card .field .pk{color:var(--green)}
+  .table-card .field .idx{color:var(--amber)}
+
+  /* state machine */
+  .flow{font-family:var(--mono);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin:18px 0;color:var(--text-dim);line-height:2;overflow-x:auto}
+  .flow .step{color:var(--accent)}
+  .flow .fail{color:var(--red)}
+
+  footer.foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-mute)}
+  footer.foot a{color:var(--accent);text-decoration:none}
+
+  @media (max-width:920px){
+    .layout{flex-direction:column}
+    nav.toc{position:relative;height:auto;flex:none;border-right:none;border-bottom:1px solid var(--border);padding:20px}
+    main{padding:32px 22px 80px}
+    .cmp{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <div class="brand"><span class="sig">/</span>superinterview</div>
+  <div class="meta">SYSTEM-DESIGN<br>model answer<br>bar: Staff / Principal</div>
+  <span class="tag">GROUND TRUTH</span>
+  <ol>
+    <li><a href="#s1">요구사항 정의</a></li>
+    <li><a href="#s2">용량 추정</a></li>
+    <li><a href="#s3">전체 아키텍처</a></li>
+    <li><a href="#s4">핵심 플로우</a></li>
+    <li><a href="#s5">데이터 모델</a></li>
+    <li><a href="#s6">딥다이브: 팬아웃</a></li>
+    <li><a href="#s7">셀럽 문제</a></li>
+    <li><a href="#s8">스케일 &amp; 병목</a></li>
+    <li><a href="#s9">정합성 &amp; 장애</a></li>
+    <li><a href="#s10">트레이드오프</a></li>
+    <li><a href="#s11">관측가능성</a></li>
+    <li><a href="#s12">요약</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="title">
+  <div class="eyebrow">System Design Interview / Model Answer</div>
+  <h1>Twitter 규모의 실시간 뉴스피드 시스템 설계</h1>
+  <p class="lede">읽기 비중이 압도적으로 높은 팬아웃 시스템에서, 타임라인을 언제 "만들지"가 전체 아키텍처와 정합성 모델을 결정한다. 셀럽 한 명의 트윗이 시스템 전체를 멈출 수 있다는 점이 이 문제의 핵심이다.</p>
+  <div class="pills">
+    <span class="pill hot">fan-out tradeoff</span>
+    <span class="pill">read-heavy</span>
+    <span class="pill">celebrity problem</span>
+    <span class="pill">eventual consistency</span>
+    <span class="pill">~45 min</span>
+  </div>
+</header>
+
+<section id="s1">
+  <h2><span class="num">01</span>요구사항 정의</h2>
+  <p>설계 전에 먼저 범위를 좁힌다. "뉴스피드"는 광범위하므로 핵심 흐름을 하나로 고정한다: 사용자가 트윗을 올리고, 팔로우한 사람들의 최신 트윗을 시간 역순으로 스크롤하며 본다. 알림, 트렌드, 검색은 v1 범위 밖으로 뺀다 - 하지만 그 경계를 <strong>명시적으로</strong> 선언하는 것이 Staff 답변의 첫 신호다.</p>
+  <h3>기능적 요구사항</h3>
+  <ul>
+    <li>사용자가 트윗을 게시한다 (텍스트 + 미디어 참조).</li>
+    <li>사용자가 홈 타임라인(팔로우한 계정의 최신 트윗)을 연다.</li>
+    <li>사용자가 팔로우/언팔로우한다.</li>
+    <li>트윗 삭제가 타임라인에 반영된다.</li>
+  </ul>
+  <h3>비기능적 요구사항</h3>
+  <ul>
+    <li><strong>가용성</strong>이 최우선 - 피드가 안 보이면 제품이 아니다.</li>
+    <li>타임라인 읽기는 <strong>저지연</strong> (p99 &lt; 200ms). 트윗 게시는 몇 초의 비동기 지연을 감내한다.</li>
+    <li><strong>결과적 정합성</strong> 허용 - 방금 올린 트윗이 팔로워에게 수 초 내로 보이면 된다. "내 피드에 방금 올린 내 트윗"만은 강하게 read-your-writes.</li>
+    <li>스파이크 내성 (이벤트, 셀럽 사망 등).</li>
+  </ul>
+  <div class="callout staff">
+    <div class="label">Staff signal - 모호성 탐색</div>
+    <p>문제를 받자마자 "정렬 기준이 시간인가 관련도인가?", "최근 N개만인가 무한 스크롤인가?", "미디어는 범위 안인가?"를 묻는다. 이 질문들이 정렬/랭킹 서비스를 넣을지 말지, 그리고 팬아웃 비용을 결정한다. 묻지 않고 바로 박스를 그리면 Staff 바에서 점수가 깎인다.</p>
+  </div>
+</section>
+
+<section id="s2">
+  <h2><span class="num">02</span>용량 추정 (back-of-envelope)</h2>
+  <p>트위터급 스케일을 가정한다. 숫자의 정확성보다 <strong>읽기:쓰기 비대칭</strong>을 잡아내는 것이 중요하다 - 이 비율이 팬아웃 전략을 결정한다.</p>
+  <div class="metrics">
+    <div class="metric"><div class="v">300M</div><div class="k">일간 활성 사용자 (DAU)</div></div>
+    <div class="metric"><div class="v">~3k → 15k</div><div class="k">트윗 QPS (평균 → 피크)</div></div>
+    <div class="metric"><div class="v">~35k → 200k</div><div class="k">피드 읽기 QPS (평균 → 피크)</div></div>
+    <div class="metric"><div class="v">~100:1</div><div class="k">읽기 : 쓰기 비율</div></div>
+  </div>
+  <div class="callout capacity">
+    <div class="label">저장 추정</div>
+    <ul>
+      <li>트윗 본문 ~500 byte (텍스트 + 메타데이터). 250M/일 × 500B ≈ <span class="inline-mono">125 GB/일</span> → 연 ~45 TB.</li>
+      <li>미디어는 객체 스토리지(S3)로 분리 - DB에 참조만 둔다.</li>
+      <li>타임라인 캐시: 사용자당 최근 800개 트윗 ID × 8 byte ≈ 6.4 KB/사용자 → 300M 사용자 = 약 2 TB Redis 메모리 (복제/여유 포함).</li>
+    </ul>
+  </div>
+  <p><strong>결론:</strong> 압도적으로 읽기가 많다 → 읽기 경로를 O(1)로 만드는 쪽(사전 계산)이 자연스럽다. 하지만 그 비용이 어디로 가는지가 6번의 핵심이다.</p>
+</section>
+
+<section id="s3">
+  <h2><span class="num">03</span>전체 아키텍처</h2>
+  <p>서비스를 읽기 경로와 쓰기 경로로 분리한다. CDN/LB → API 게이트웨이(인증, 레이트리밋) 뒤에 두 서비스가 갈라진다.</p>
+  <div class="diagram">
+    <div class="layer-label">쓰기 경로 (tweet publish)</div>
+    <div class="row">
+      <span class="node">Client</span><span class="arrow">→</span>
+      <span class="node">API Gateway</span><span class="arrow">→</span>
+      <span class="node accent">Tweet Service</span><span class="arrow">→</span>
+      <span class="node">Postgres (sharded)</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span class="node accent">Tweet Service</span><span class="arrow">→</span>
+      <span class="node">Kafka: tweet-published</span><span class="arrow">→</span>
+      <span class="node green">Fan-out Worker</span><span class="arrow">→</span>
+      <span class="node green">Redis Timeline (per user)</span>
+    </div>
+    <div class="layer-label">읽기 경로 (feed read)</div>
+    <div class="row">
+      <span class="node">Client</span><span class="arrow">→</span>
+      <span class="node">API Gateway</span><span class="arrow">→</span>
+      <span class="node green">Timeline Service</span><span class="arrow">→</span>
+      <span class="node green">Redis Timeline</span>
+      <span class="arrow">(+ merge)</span><span class="node amber">celeb recent tweets</span>
+    </div>
+    <div class="layer-label">지원</div>
+    <div class="row">
+      <span class="node">Social Graph Service (follows)</span>
+      <span class="arrow"></span>
+      <span class="node">Object Storage (media)</span>
+      <span class="arrow"></span>
+      <span class="node">Elasticsearch (검색, v2)</span>
+    </div>
+  </div>
+  <p>핵심 분리: <code>Tweet Service</code>는 트윗을 영속화하고 이벤트만 발행한다. <strong>타임라인은 Redis에 사전 계산된 리스트</strong>이고 <code>Timeline Service</code>는 그것을 읽기만 한다. 셀럽 트윗은 사전 계산에서 빼고 읽기 시 병합한다(7번).</p>
+</section>
+
+<section id="s4">
+  <h2><span class="num">04</span>핵심 플로우</h2>
+  <h3>트윗 게시 (쓰기)</h3>
+  <ol>
+    <li>클라이언트가 트윗 제출. API 게이트웨이에서 인증/레이트리밋.</li>
+    <li><code>Tweet Service</code>가 내용 검증 후 Postgres 샤드에 트윗 저장 (상태 <code>POSTED</code>).</li>
+    <li>미디어는 이미 객체 스토리지에 올라있고 참조만 저장.</li>
+    <li><code>tweet-published</code> 이벤트를 Kafka에 발행하고 클라이언트에는 즉시 200 OK. - <strong>동기 경로는 여기서 끝</strong>.</li>
+  </ol>
+  <h3>타임라인 읽기 (읽기)</h3>
+  <ol>
+    <li><code>Timeline Service</code>가 Redis에서 해당 사용자의 사전 계산 리스트를 읽는다 (O(1), 단순 리스트 읽기).</li>
+    <li>팔로우한 셀럽들의 최근 트윗을 가져와 병합한다.</li>
+    <li>삭제된 트윗은 tombstone/필터링으로 제외.</li>
+    <li>페이징하여 반환 (cursor 기반).</li>
+  </ol>
+  <div class="callout staff">
+    <div class="label">Staff signal - 제약의 연쇄</div>
+    <p>"쓰기를 비동기로 끝내고 200 OK를 먼저 준다"는 선택이 <strong>read-your-writes를 깰 수 있다</strong>는 제약을 만든다. 그래서 게시 직후엔 클라이언트가 자기 피드를 열 때 내 트윗을 optimistic하게 맨 위에 끼워 넣거나, fan-out을 내 타임라인만 동기로 먼저 처리한다. 한 선택이 다른 곳의 요구사항을 강제한다는 것을 보여주는 것이 Staff 답변이다.</p>
+  </div>
+</section>
+
+<section id="s5">
+  <h2><span class="num">05</span>데이터 모델</h2>
+  <p>트윗/팔로우는 관계형(ACID 필요), 타임라인은 Redis(속도). DB는 user_id 기준 샤딩.</p>
+  <div class="schema">
+    <div class="table-card">
+      <div class="tname">tweets</div>
+      <div class="field"><span class="pk">tweet_id</span></div>
+      <div class="field">user_id <span class="idx">idx</span></div>
+      <div class="field">content</div>
+      <div class="field">media_refs</div>
+      <div class="field">created_at <span class="idx">idx</span></div>
+    </div>
+    <div class="table-card">
+      <div class="tname">follows</div>
+      <div class="field"><span class="pk">follower_id</span></div>
+      <div class="field">followee_id <span class="idx">idx</span></div>
+      <div class="field">created_at</div>
+    </div>
+    <div class="table-card">
+      <div class="tname">timeline (Redis)</div>
+      <div class="field"><span class="pk">user_id</span> → list</div>
+      <div class="field">[tweet_id, ...] sorted by ts</div>
+      <div class="field">cap: ~800 entries</div>
+    </div>
+  </div>
+  <div class="callout">
+    <div class="label" style="color:var(--text-dim)">구현 메모</div>
+    <p>타임라인은 Redis <span class="inline-mono">LIST</span> (LPUSH + LTRIM 0 799) 또는 <span class="inline-mono">ZSET</span> (score=timestamp). ZSET이 정렬·병합에 유리하지만 메모리가 더 든다. 최근 N개만 보관하므로 용량은 통제된다. <strong>tweet_id에 timestamp를 인코딩</strong> (Snowflake)하면 정렬키가 자연스럽고 시간 기반 샤딩도 된다.</p>
+  </div>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>딥다이브: 팬아웃 전략 (핵심 트레이드오프)</h2>
+  <p>이 문제의 심장이다. 타임라인을 "언제" 조립하느냐가 모든 것을 결정한다.</p>
+  <div class="cmp">
+    <div class="col push">
+      <h4><span class="dot"></span>Fan-out-on-write (push)</h4>
+      <ul>
+        <li>트윗 게시 시 모든 팔로워의 타임라인에 push</li>
+        <li><strong>읽기 O(1)</strong> - 리스트 읽기만</li>
+        <li>쓰기 비용 = 팔로워 수</li>
+        <li>팔로워 많으면 쓰기 폭발</li>
+        <li>비활성 사용자 타임라인도 갱신 (낭비)</li>
+      </ul>
+    </div>
+    <div class="col pull">
+      <h4><span class="dot"></span>Fan-out-on-read (pull)</h4>
+      <ul>
+        <li>읽기 시 팔로우 전원의 최근 트윗을 pull·병합</li>
+        <li><strong>쓰기 O(1)</strong> - 저장 1회</li>
+        <li>읽기 비용 = 팔로우 수</li>
+        <li>팔로우 많으면 읽기 폭발·느림</li>
+        <li>활성 사용자에게 적합</li>
+      </ul>
+    </div>
+  </div>
+  <p>정답은 둘 중 하나가 아니라 <strong>하이브리드</strong>다:</p>
+  <ul>
+    <li><strong>일반 사용자</strong> (팔로워 &lt; 임계값, 예: 10만): fan-out-on-write. 타임라인을 사전 계산.</li>
+    <li><strong>셀럽</strong> (팔로워 ≥ 임계값): fan-out-on-write를 하지 않는다. 대신 읽기 시 팔로워의 타임라인에 셀럽의 최근 트윗을 <strong>pull해서 병합</strong>.</li>
+  </ul>
+  <div class="callout tradeoff">
+    <div class="label">트레이드오프 - 왜 이 경계인가</div>
+    <p>임계값은 "셀럽 한 번의 게시가 시스템에 가하는 fan-out 부하 vs 그 셀럽의 모든 팔로워가 읽기 시 병합 비용"의 교차점이다. 임계값을 낮추면 쓰기 부하가 줄지만 읽기 병합이 많아진다. <strong>이 임계값을 설정값으로 두고 관측하며 조정</strong>한다는 점까지 말하면 Staff다 - 정답이 아니라 조절 가능한 파라미터임을 아는 것.</p>
+  </div>
+</section>
+
+<section id="s7">
+  <h2><span class="num">07</span>셀럽 문제 (hot-key)</h2>
+  <p>팔로워 1억 명인 셀럽이 트윗하면 fan-out-on-write는 1억 번 쓰기를 시도한다 - 단일 트윗이 시스템을 마비시킨다. 위 하이브리드가 1차 해결이지만, hot-key는 더 남는다.</p>
+  <div class="callout fail">
+    <div class="label">완화책</div>
+    <ul>
+      <li><strong>셀럽은 push 제외</strong> (위와 동일) - 읽기 시에만 병합.</li>
+      <li>병합 시 셀럽 트윗을 별도 캐시 계층에서 가져온다 - 한 셀럽의 최근 트윗은 전역 1곳에만 두고 모든 팔로워가 공유 읽기.</li>
+      <li>핫 게시물은 fan-out을 <strong>점진적/분할</strong> 처리 - 모든 팔로워를 한 번에가 아니라 시간에 걸쳐 채운다 (약간의 결과적 정합성 감내).</li>
+      <li>timeline Redis를 클러스터링하고 hot user의 파티션을 복제하여 읽기 부하 분산.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="s8">
+  <h2><span class="num">08</span>스케일 &amp; 병목</h2>
+  <ul>
+    <li><strong>트윗 DB 병목</strong> → user_id 기반 샤딩, 읽기 복제본. tweet_id(Snowflake)에 시간+샤드 인코딩.</li>
+    <li><strong>fan-out worker 병목</strong> → Kafka 파티션으로 평행화, consumer autoscale (lag 기반).</li>
+    <li><strong>timeline Redis 용량</strong> → 사용자당 cap(LTRIM), 클러스터 샤딩, 비활성 사용자 타임라인은 지연/요청 시 재계산.</li>
+    <li><strong>팔로우 그래프</strong> → 별도 그래프 서비스/캐시, fan-out 시 팔로워 목록을 캐시.</li>
+  </ul>
+  <div class="callout staff">
+    <div class="label">Staff signal - 병목의 이동</div>
+    <p>"fan-out-on-write로 읽기를 O(1)로 만들면 병목이 쓰기/워커/Redis 용량으로 옮겨간다" - 해결이 병목을 제거하는 게 아니라 <strong>옮긴다</strong>는 점을 말하는 것이 핵심이다. 각 병목에 대응책을 하나씩 매핑한다.</p>
+  </div>
+</section>
+
+<section id="s9">
+  <h2><span class="num">09</span>정합성 &amp; 장애 처리</h2>
+  <p>타임라인은 <strong>결과적 정합성</strong>이 허용된다 - 트윗이 수 초 내에 퍼지면 된다. 단, "내가 올린 내 트윗"은 read-your-writes를 지킨다.</p>
+  <div class="callout fail">
+    <div class="label">장애 시나리오</div>
+    <ul>
+      <li><strong>fan-out 도중 worker 장애</strong> → Kafka 오프셋 기반 재시도, 최종적 전달. 누락 사용자는 읽기 시 느린 경로로 복구.</li>
+      <li><strong>트윗 삭제</strong> → tombstone 이벤트 발행, fan-out worker가 각 타임라인에서 제거. 늦어도 읽기 시 필터링으로 안전망.</li>
+      <li><strong>Redis 장애</strong> → 읽기 경로가 DB 풀백(팔로우별 pull 병합)으로 전환, 단 레이트리밋으로 DB 보호. 부분 복구 후 캐시 재워밍.</li>
+      <li><strong>Kafka 지연</strong> → 사용자에게는 "잠시 후 다시" 중간 상태 노출; 게시 직후엔 read-your-writes 낙관적 삽입.</li>
+      <li><strong>DB primary 장애</strong> → 복제본 자동 페일오버, 다중 AZ.</li>
+    </ul>
+  </div>
+  <div class="callout staff">
+    <div class="label">Staff signal - 정합성 경계</div>
+    <p>정합성의 경계는 <span class="inline-mono">tweet-published</span> 이벤트다. 그 이전(트윗 저장)은 강하게 동기, 이후(fan-out)는 최종적. <strong>이 경계를 어디에 긋느냐</strong>가 삭제 전파, 재시도 멱등성, read-your-writes 비용을 모두 결정한다 - 경계 자체가 설계 결정이라는 점을 짚는다.</p>
+  </div>
+</section>
+
+<section id="s10">
+  <h2><span class="num">10</span>트레이드오프 분석</h2>
+  <ul>
+    <li><strong>정합성 vs 가용성</strong>: 타임라인은 결과적 정합성으로 가용성/속도를 취한다. 단 내 트윗 read-your-writes는 강하게 유지.</li>
+    <li><strong>지연 vs 신뢰성</strong>: 읽기를 O(1)로(쓰기 비용을 fan-out로 감수) - 읽기가 100배 많으므로 타당. 게시는 비동기로.</li>
+    <li><strong>비용 vs 성능</strong>: 모든 사용자 타임라인을 사전 계산하면 비활성 사용자에 낭비. 임계/지연 계산으로 비용 절감.</li>
+    <li><strong>범용 트레이드오프</strong>: fan-out-on-write의 "읽기 O(1) ↔ 셀럽 폭발"과 fan-out-on-read의 "쓰기 O(1) ↔ 읽기 폭발"을 <strong>사용자 유형별로 분기</strong>해 둘 다 회피 - 이 분기 자체가 설계의 핵심 기여다.</li>
+  </ul>
+</section>
+
+<section id="s11">
+  <h2><span class="num">11</span>관측가능성 &amp; 운영</h2>
+  <ul>
+    <li><strong>지표</strong>: 피드 읽기 p50/p95/p99, fan-out worker 지연·lag, 타임라인 Redis 히트율·메모리, 셀럽 병합 지연, 게시→첫 팔로워 도달 시간.</li>
+    <li><strong>분산 트레이싱</strong>: 한 트윗이 tweet-published → fan-out → 타임라인까지 흐르는 경로 추적.</li>
+    <li><strong>알림/런북</strong>: lag 임계, hot-key 경보, Redis 페일오버 런북.</li>
+    <li><strong>기능 플래그</strong>: 셀럽 임계값·fan-out 동기/비동기 전환을 플래그로 두어 장애 시 우아한 강등.</li>
+  </ul>
+</section>
+
+<section id="s12">
+  <h2><span class="num">12</span>요약</h2>
+  <p>핵심은 읽기 비중(100:1)을 잡아내어 <strong>타임라인을 사전 계산</strong>으로 읽기를 O(1)로 만들되, 그 비용이 셀럽 한 명에게서 폭발하는 것을 <strong>사용자 유형별 fan-out 분기</strong>로 회피하는 것이다. 정합성 경계는 <span class="inline-mono">tweet-published</span> 이벤트 - 이전은 강하게, 이후는 최종적. 한 설계 결정이 다른 시스템 요구사항을 어떻게 강제하는지(read-your-writes, 삭제 전파)까지 드러내는 것이 Staff 수준의 답변이다.</p>
+  <div class="callout tradeoff">
+    <div class="label">한 줄 정합성 입장</div>
+    <p>타임라인 = 결과적 + 읽기 O(1); 내 트윗 = read-your-writes; 트윗 저장/팔로우 = ACID 강정합. 세 도메인에 각각 다른 정합성을 적용하고 그 이유를 말한다.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  superinterview / SYSTEM-DESIGN model answer - Twitter news feed. Staff/Principal bar.
+  ground-truth reference; revealed at Grade only. 비교용이지 유일한 정답이 아니다.
+</footer>
+</main>
+</div>
+
+<script>
+  // active TOC highlight on scroll
+  const links=[...document.querySelectorAll('nav.toc a')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const m=links.find(l=>l.getAttribute('href')==='#'+e.target.id);if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(s=>s&&obs.observe(s));
+</script>
+</body>
+</html>
