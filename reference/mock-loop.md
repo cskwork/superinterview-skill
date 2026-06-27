@@ -10,11 +10,14 @@ TEACH-CONCEPT - those do not run a simulation.
 
 ## The perform-first / reveal-after contract
 
-The model answer (`reference/system-design-model-answer.md` for SYSTEM-DESIGN) is GROUND TRUTH, not an
-opening handout. Reveal it ONLY at Grade, after the user has performed their own full answer. Reading
-it first turns practice into recognition and breeds the illusion of knowing - the exact failure mode
-this skill exists to prevent. If the user asks to "see how it's done" before attempting, refuse and
-explain why: attempt first, compare after. The only exception is TEACH-CONCEPT, which is not a mock.
+The model answer (`reference/system-design-model-answer.html` for SYSTEM-DESIGN) is GROUND TRUTH, not an
+opening handout. Reveal it ONLY at Grade, after the user has performed their own full answer, as a
+polished standalone HTML page. Reading it first turns practice into recognition and breeds the illusion
+of knowing - the exact failure mode this skill exists to prevent. If the user asks to "see how it's done"
+before attempting, refuse and explain why: attempt first, compare after. The only exception is
+TEACH-CONCEPT, which is not a mock. For a novel question with no stored HTML answer, GENERATE one fresh
+at Grade from `templates/model-answer.html` - model answers are always delivered as HTML, never as raw
+markdown or inline prose.
 
 ## Roles (each role = a fresh-context subagent by default)
 
@@ -57,8 +60,10 @@ transcript. A single quick GRADE of one short answer runs inline. Full personas:
    - Score dimension-by-dimension against the rubric (`reference/system-design-rubric.md` for
      SYSTEM-DESIGN; `reference/rubrics.md` otherwise), at the target level's depth bar.
    - Report the scorecard, then name the SINGLE highest-leverage gap with a concrete one-line fix.
-   - THEN reveal the model answer for self-comparison (SYSTEM-DESIGN only; other modes have no
-     single canonical answer, so compare against the rubric's "what good looks like" instead).
+   - THEN reveal the model answer as a polished standalone HTML page for self-comparison (SYSTEM-DESIGN
+     only; other modes have no single canonical answer, so compare against the rubric's "what good looks
+     like" instead). For a novel question with no stored answer, generate a fresh HTML model answer from
+     `templates/model-answer.html` at this point - answers are always delivered as HTML.
    - The critic persona supplies the gap detection the performer's self-review systematically misses.
 
 6. **Re-drill.** Pose a NOVEL variant that re-tests the weakest dimension under the same rubric:

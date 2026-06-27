@@ -68,7 +68,9 @@ FIRST gap: <dimension> - <what was thin> -> <concrete one-line fix>
 Re-drill target: <dimension> with a novel variant: <the new question/constraint>
 ```
 
-Then reveal `reference/system-design-model-answer.md` for self-comparison.
+Then reveal the model answer as a polished standalone HTML page
+(`reference/system-design-model-answer.html`, or a freshly generated one from `templates/model-answer.html`
+for a novel question) for self-comparison.
 
 ## Probing-question bank (Pose + Probe)
 
