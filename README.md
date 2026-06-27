@@ -1,5 +1,7 @@
 # superinterview
 
+**Landing page: https://cskwork.github.io/superinterview-skill/**
+
 Interview preparation skill for coding-agent assistants. Mock interviews with rubric-graded feedback
 and targeted re-drill. System design is the flagship (graded against a full model answer); behavioral
 (STAR) and coding (algorithm) are included.
