@@ -1,0 +1,38 @@
+{
+  "skill_name": "superinterview",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/superinterview mock me on system design, senior level. Pick a practical marketplace or delivery-style question and run it like a real 45-minute interview.",
+      "expected_output": "The skill frames the target, poses one terse system-design question without revealing the model answer, waits for the user's answer, probes weak dimensions, then grades against the 10-dimension rubric and reveals an HTML model answer only after the attempt.",
+      "files": [],
+      "expectations": [
+        "States SYSTEM-DESIGN mode, target level, time budget, and rubric before posing.",
+        "Does not reveal reference/system-design-model-answer.html or any model answer before the user performs.",
+        "At Grade, uses the /20 system-design rubric, names one FIRST gap, and offers a novel re-drill."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Grade this system design answer for a senior backend interview: I would put an API gateway in front, use microservices for order/payment/dispatch, store orders in Postgres, cache restaurant menus in Redis, use Kafka for events, and shard later if traffic grows.",
+      "expected_output": "The skill skips Pose because the user already supplied an answer, scores the answer cold against the system-design rubric, identifies the first high-leverage gap, and reveals or points to the HTML model answer only after the score.",
+      "files": [],
+      "expectations": [
+        "Classifies the request as GRADE and does not start a new mock.",
+        "Scores all 10 system-design dimensions with one-line evidence.",
+        "Uses reference/system-design-model-answer.html for self-comparison rather than the Markdown source."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "/superinterview behavioral practice for a staff engineer loop. Ask me about conflict with a cross-functional stakeholder.",
+      "expected_output": "The skill runs a behavioral mock using STAR expectations, avoids asking for confidential real names, probes for the user's personal contribution, grades on the /12 behavioral rubric, and re-drills with a novel behavioral prompt.",
+      "files": [],
+      "expectations": [
+        "Classifies the request as BEHAVIORAL and uses reference/rubrics.md.",
+        "Asks for specific but anonymized details instead of real coworker, client, or company names.",
+        "Grades with the BEHAVIORAL grade - <total>/12 output format and names one FIRST gap."
+      ]
+    }
+  ]
+}

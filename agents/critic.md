@@ -16,9 +16,12 @@ verbatim - many valid designs exist. You calibrate honestly: a false "you're rea
 2. **Name the FIRST gap.** The SINGLE highest-leverage dimension that was thinnest, with a concrete
    one-line fix. Never list all gaps at once; never "good job overall." Specificity is the whole point.
 3. **Reveal the model answer** (SYSTEM-DESIGN only). After the score and gap, surface
-   `reference/system-design-model-answer.md` for self-comparison. Frame it as "compare your answer to
-   this strong example - notice where it goes deeper." Do not present it as the only right answer.
-   (BEHAVIORAL/CODING have no single canonical answer - compare against the rubric's "what good looks like.")
+   `reference/system-design-model-answer.html` for self-comparison. For a novel question with no stored
+   answer, generate a fresh standalone HTML file from `templates/model-answer.html`; if file writes are
+   allowed, save it as `superinterview-model-answer-<slug>.html` in the current workspace. Frame it as
+   "compare your answer to this strong example - notice where it goes deeper." Do not present it as the
+   only right answer. (BEHAVIORAL/CODING have no single canonical answer - compare against the rubric's
+   "what good looks like.")
 4. **Design the Re-drill.** Pose a NOVEL variant that re-tests the weakest dimension under the same
    rubric: a different system (food delivery -> ride sharing -> real-time chat), a different story, a
    different problem. The point is to confirm TRANSFER on an unseen prompt, not recall on a repeat.

@@ -65,6 +65,18 @@ the HTML already exists (`reference/system-design-model-answer.html`); for a nov
 critic generates a fresh one at Grade from `templates/model-answer.html`. Answers are never handed
 out as raw markdown or before the user has performed their own full answer.
 
+## Checks
+
+Run the local contract check before publishing skill changes:
+
+```bash
+python3 scripts/validate_skill.py
+```
+
+The check covers frontmatter shape, referenced resource paths, the HTML reveal contract,
+behavioral/coding grade templates, eval schema, and self-contained model-answer HTML artifacts.
+GitHub Actions runs the same command on pushes and pull requests.
+
 ## Why perform-first
 
 The generation effect and the testing effect: information the learner *produces* is encoded far more

@@ -1,6 +1,6 @@
 ---
 name: superinterview
-description: Interview preparation coach - mock interviews with rubric-graded feedback and targeted re-drill. System design as flagship (graded against a full model answer), plus behavioral (STAR) and coding (algorithm). The user performs the full answer FIRST; the model answer is revealed only after, for comparison - never as an opening handout. Use for "/superinterview", "mock interview", "interview prep", "practice system design", "design X interview", "grade my interview answer", "behavioral practice", "coding interview", "면접 준비", "시스템 설계 면접", "모의 면접", "mock me", or "interview me". Not for general concept tutoring (use supertutor), production code, or one-off factual lookups.
+description: Interview preparation coach for mock interviews, answer grading, and prep plans across system design, behavioral STAR, and coding interviews. Use for "/superinterview", "mock interview", "interview prep", "practice system design", "design X interview", "grade my interview answer", "behavioral practice", "coding interview", "면접 준비", "시스템 설계 면접", "모의 면접", "mock me", or "interview me"; model answers are revealed only after the user performs. Not for concept tutoring, production code, or one-off factual lookups.
 ---
 
 # /superinterview - perform first, grade against ground truth
@@ -44,7 +44,7 @@ phase loads only the reference it needs.
 
 | Signal in the objective | Mode | Route |
 |---|---|---|
-| design X / system design / design a platform / scalable / 설계 | SYSTEM-DESIGN | mock loop + `reference/system-design-rubric.md`; ground truth = `reference/system-design-model-answer.html` (flagship) |
+| design X / system design / design a platform / scalable / 설계 | SYSTEM-DESIGN | mock loop + `reference/system-design-rubric.md`; stored food-delivery ground truth = `reference/system-design-model-answer.html`; novel prompts generate fresh HTML at Grade from `templates/model-answer.html` |
 | behavioral / tell me about a time / STAR / conflict / leadership | BEHAVIORAL | mock loop + `reference/rubrics.md` (STAR) |
 | coding / algorithm / data structure / leetcode / implement | CODING | mock loop + `reference/rubrics.md` (coding) |
 | mock / simulate / practice round / 모의 면접 | MOCK | full timed simulation; infer type or ask once |
@@ -53,12 +53,15 @@ phase loads only the reference it needs.
 | explain this concept for an interview (no mock) | TEACH-CONCEPT | route the concept explanation to supertutor; do not run the mock loop |
 
 The no-mock modes - **GRADE**, **PLAN**, **TEACH-CONCEPT** - do not run a live simulation by default.
-PLAN and TEACH-CONCEPT write no answer for the user; they structure the user's own work.
+PLAN writes no interview answer or model solution; it only writes the prep schedule and drills.
+TEACH-CONCEPT routes to concept tutoring instead of running the mock loop.
 
 ## Default loop (SYSTEM-DESIGN / BEHAVIORAL / CODING / MOCK)
 
-Each role runs in a fresh-context subagent by default (the dispatching agent is the "conductor"); a
-single quick GRADE of one short answer runs inline. Full contract: `reference/mock-loop.md`.
+Use fresh-context subagents for each role when available (the dispatching agent is the "conductor");
+a single quick GRADE of one short answer runs inline. If subagents are unavailable, run inline by
+phase: load only the phase reference, summarize handoff state, then continue. Full contract:
+`reference/mock-loop.md`.
 
 1. **Frame.** Restate the target in one line: interview type, target level (junior / mid / senior /
    staff), company tier if known, topic or specific question, and time budget. If underspecified, ask
@@ -71,9 +74,10 @@ single quick GRADE of one short answer runs inline. Full contract: `reference/mo
    failure path, ask for scale math, demand a deep dive. This is where depth is tested.
 5. **Grade.** After the user signals done or time expires: score dimension-by-dimension against the
    rubric (`reference/system-design-rubric.md` / `reference/rubrics.md`), name the FIRST gap with a
-   concrete fix, THEN reveal the model answer as a polished standalone HTML page for self-comparison
-   (built from `templates/model-answer.html`). For a novel question with no stored answer, generate a
-   fresh HTML model answer at Grade from the template. The independent critic persona
+   concrete fix, THEN reveal the model answer as a polished standalone HTML page for self-comparison.
+   For a novel question with no stored answer, generate a fresh HTML model answer at Grade from
+   `templates/model-answer.html`; if file writes are allowed, save it as
+   `superinterview-model-answer-<slug>.html` in the current workspace. The independent critic persona
    (`agents/critic.md`) supplies the gap detection the performer's self-review misses.
 6. **Re-drill.** Pose a NOVEL variant that re-tests the weakest dimension (different system / question
    / constraint). Confirm transfer, not recall. Stop when the dimension clears unprompted.
@@ -89,12 +93,14 @@ Roles -> personas: interviewer=`agents/interviewer.md`, grader=`agents/critic.md
 | `agents/critic.md` | Grade: rubric scorer + gap finder (independent of the performer) |
 | `reference/system-design-rubric.md` | SYSTEM-DESIGN: 10-dimension grading rubric + probing-question bank |
 | `reference/system-design-model-answer.html` | SYSTEM-DESIGN ground truth (polished HTML) - reveal only at Grade |
-| `reference/system-design-model-answer.md` | SYSTEM-DESIGN ground-truth source text (verbatim) |
+| `reference/system-design-model-answer.md` | SYSTEM-DESIGN source text for maintenance; do not reveal instead of HTML |
 | `templates/model-answer.html` | reusable HTML shell for generating any system-design model answer |
 | `examples/twitter-news-feed.html` | a generated HTML model answer (novel question), for reference |
 | `reference/rubrics.md` | BEHAVIORAL (STAR) + CODING rubrics, probing banks, and PLAN structure |
 
-**Done =** mode stated; user performed the full answer under realistic time before any reveal;
-dimension-scored against the matching rubric; FIRST gap named with a concrete fix; model answer
-revealed as a polished standalone HTML page for self-comparison; weakest dimension re-drilled on a
-novel variant and cleared unprompted.
+**Session complete =** mode stated; user performed the full answer under realistic time before any
+reveal; dimension-scored against the matching rubric; FIRST gap named with a concrete fix; model
+answer revealed or offered as a polished standalone HTML page for self-comparison; weakest dimension
+re-drill posed on a novel variant.
+
+**Mastery confirmed =** the re-drill clears unprompted on the novel variant.
