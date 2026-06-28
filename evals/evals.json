@@ -44,6 +44,17 @@
         "Uses private/resume.md only as local candidate context and does not place resume facts in public tracked files.",
         "Does not fabricate missing answers and stops before final submission or sensitive fields without explicit confirmation."
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "/superinterview coding practice: help me solve LeetCode 392 Is Subsequence, but train me to recognize the pattern instead of just giving the answer.",
+      "expected_output": "The skill classifies the request as CODING, preserves the perform-first interview flow if running as a mock, and uses the coding pattern reference to teach the user to ask what information must be tracked. It should identify order-preserving subsequence matching as a two-pointer scan after the user's attempt or as a minimal stall nudge.",
+      "files": [],
+      "expectations": [
+        "Classifies the request as CODING and uses reference/rubrics.md plus reference/coding-pattern-recognition.md.",
+        "Frames pattern recognition around what the problem asks the candidate to track, not memorized algorithm names.",
+        "For Is Subsequence, connects relative order and skipping to a two-pointer scan through the larger string."
+      ]
     }
   ]
 }

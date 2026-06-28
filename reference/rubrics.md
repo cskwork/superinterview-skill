@@ -66,6 +66,11 @@ Re-drill target: <dimension> with a novel behavioral prompt: <the new prompt>
 Coding interviews test problem-solving process + correct code + communication. The rubric grades the
 whole arc, not just "does it compile."
 
+For approach coaching, weak-dimension diagnosis, and re-drill design, use
+`reference/coding-pattern-recognition.md`. During a live mock, do not reveal the full pattern guide
+before the user attempts the problem; use it to choose one interviewer-style nudge if the user stalls,
+then use it fully at Grade.
+
 ## Scoring (per dimension, 0-2)
 
 1. **Clarify before coding** - Restated the problem, asked about edge cases, input constraints,
