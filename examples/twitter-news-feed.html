@@ -9,7 +9,7 @@
 <style>
   :root{
     --bg:#ffffff; --surface:#f6f8fa; --surface-2:#eaeef2; --border:#d0d7de;
-    --text:#1f2328; --text-dim:#59636e; --text-mute:#8c959f;
+    --text:#1f2328; --text-dim:#59636e; --text-mute:#666e78;
     --accent:#0969da; --accent-soft:#ddf4ff; --accent-border:rgba(9,105,218,.4);
     --green:#1a7f37; --green-soft:#dafbe1; --green-border:rgba(26,127,55,.4);
     --amber:#9a6700; --amber-soft:#fff8c5; --amber-border:rgba(154,103,0,.4);
@@ -19,7 +19,7 @@
   }
   :root[data-theme="dark"]{
     --bg:#0f1419; --surface:#161b22; --surface-2:#1c232c; --border:#2a3340;
-    --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#6b7785;
+    --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#7d8a96;
     --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14); --accent-border:rgba(59,130,246,.3);
     --green:#3fb950; --green-soft:rgba(63,185,80,.13); --green-border:rgba(63,185,80,.3);
     --amber:#d29922; --amber-soft:rgba(210,153,34,.13); --amber-border:rgba(210,153,34,.3);
@@ -110,6 +110,11 @@
   .deep-body p{color:var(--text-dim)}
   .deep-body p:last-child{margin-bottom:0}
   .deep-body ul{margin:8px 0 0}
+  .expand-all{display:block;width:100%;margin-top:14px;padding:7px 10px;border-radius:6px;
+    border:1px solid var(--border);background:var(--surface);color:var(--text-dim);
+    font-family:var(--mono);font-size:11.5px;cursor:pointer;
+    transition:color .15s,border-color .15s,background .15s}
+  .expand-all:hover{color:var(--accent);border-color:var(--accent);background:var(--surface-2)}
   .theme-toggle{position:fixed;right:22px;bottom:22px;z-index:50;display:inline-flex;
     align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
     font-weight:600;padding:9px 14px;border-radius:999px;border:1px solid var(--border);
@@ -133,6 +138,7 @@
   <div class="brand"><span class="sig">/</span>superinterview</div>
   <div class="meta">SYSTEM-DESIGN<br>model answer<br>bar: Staff / Principal</div>
   <span class="tag">GROUND TRUTH</span>
+  <button class="expand-all" id="expandAll" type="button">전체 펼치기</button>
   <ol>
     <li><a href="#s1">요구사항 정의</a></li>
     <li><a href="#s2">용량 추정</a></li>
@@ -462,6 +468,12 @@
     });
     sync();
   })();
+  var ea=document.getElementById('expandAll');
+  if(ea){var deeps=[].slice.call(document.querySelectorAll('details.deep'));
+    function anyClosed(){return deeps.some(function(d){return !d.open})}
+    function syncEA(){ea.textContent=anyClosed()?'전체 펼치기':'전체 접기'}
+    ea.addEventListener('click',function(){var o=anyClosed();deeps.forEach(function(d){d.open=o});syncEA();});
+    deeps.forEach(function(d){d.addEventListener('toggle',syncEA)});syncEA();}
   var links=[].slice.call(document.querySelectorAll('nav.toc a'));
   var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))});
   var obs=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(l){l.classList.remove('active')});var m=links.find(function(l){return l.getAttribute('href')==='#'+e.target.id});if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
