@@ -33,6 +33,17 @@
         "Asks for specific but anonymized details instead of real coworker, client, or company names.",
         "Grades with the BEHAVIORAL grade - <total>/12 output format and names one FIRST gap."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Use superinterview to fill my Amazon.jobs application form from my local resume. Stop before final submit.",
+      "expected_output": "The skill classifies the request as RESUME-FORM, reads private/resume.md if present, maps visible application fields to resume facts, fills only supported ordinary resume fields, and stops at login, CAPTCHA, upload, legally sensitive questions, or final submit.",
+      "files": [],
+      "expectations": [
+        "Classifies the request as RESUME-FORM and does not start a mock interview.",
+        "Uses private/resume.md only as local candidate context and does not place resume facts in public tracked files.",
+        "Does not fabricate missing answers and stops before final submission or sensitive fields without explicit confirmation."
+      ]
     }
   ]
 }

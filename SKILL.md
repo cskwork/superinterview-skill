@@ -1,6 +1,6 @@
 ---
 name: superinterview
-description: Interview preparation coach for mock interviews, answer grading, and prep plans across system design, behavioral STAR, and coding interviews. Use for "/superinterview", "mock interview", "interview prep", "practice system design", "design X interview", "grade my interview answer", "behavioral practice", "coding interview", "면접 준비", "시스템 설계 면접", "모의 면접", "mock me", or "interview me"; model answers are revealed only after the user performs. Not for concept tutoring, production code, or one-off factual lookups.
+description: Interview preparation coach and private resume helper for mock interviews, answer grading, prep plans, and resume/job application form autofill from local candidate context. Use for "/superinterview", "mock interview", "interview prep", "practice system design", "grade my interview answer", "behavioral practice", "coding interview", "fill my resume form", "auto-fill job application", "Amazon.jobs application", "Workday application", "면접 준비", "모의 면접", or "interview me"; model answers are revealed only after the user performs. Not for concept tutoring, production code, or one-off factual lookups.
 ---
 
 # /superinterview - perform first, grade against ground truth
@@ -57,11 +57,35 @@ or expose contact details from the private file unless the user explicitly asks.
 | mock / simulate / practice round / 모의 면접 | MOCK | full timed simulation; infer type or ask once |
 | grade / review my answer / 채점 / 피드백 | GRADE | skip Pose; score an answer the user already gave against the matching rubric + model answer |
 | study plan / prep roadmap / what to study | PLAN | build a time-boxed prep plan (`reference/rubrics.md`) |
+| auto-fill resume form / job application / application profile / Amazon.jobs / Workday / LinkedIn application | RESUME-FORM | read private candidate context, inspect the form, fill mapped fields, ask for missing or sensitive facts, and stop before final submit |
 | explain this concept for an interview (no mock) | TEACH-CONCEPT | route the concept explanation to supertutor; do not run the mock loop |
 
-The no-mock modes - **GRADE**, **PLAN**, **TEACH-CONCEPT** - do not run a live simulation by default.
-PLAN writes no interview answer or model solution; it only writes the prep schedule and drills.
-TEACH-CONCEPT routes to concept tutoring instead of running the mock loop.
+The no-mock modes - **GRADE**, **PLAN**, **RESUME-FORM**, **TEACH-CONCEPT** - do not run a live
+simulation by default. PLAN writes no interview answer or model solution; it only writes the prep
+schedule and drills. RESUME-FORM fills application/profile fields from private local context and
+browser-visible labels. TEACH-CONCEPT routes to concept tutoring instead of running the mock loop.
+
+## Resume form autofill (RESUME-FORM)
+
+Use this when the user asks to fill a job application, resume form, candidate profile, or recruiting
+site. The real-world task is data transfer: map private resume facts to employer fields accurately,
+not to coach or improve the resume mid-flow.
+
+1. Read `private/resume.md` if it exists. If it is missing, ask for a local resume file or minimal
+   candidate facts before filling.
+2. Inspect the form before writing. Build a field map from visible labels, placeholders, selected
+   options, and validation messages to resume facts.
+3. Fill only fields supported by the resume or the user's explicit instructions. Do not guess legal
+   eligibility, sponsorship, demographic, disability, veteran, compensation, start-date, password, OTP,
+   or CAPTCHA answers.
+4. If the user named a target site and asked to fill it, entering ordinary resume/contact/career facts
+   into that site is within the request. Still stop before final submission, file upload, account
+   creation, password login, or any legally sensitive self-identification unless the user explicitly
+   confirms that action.
+5. When a required field is missing or ambiguous, leave it blank and report the exact missing item
+   instead of fabricating.
+6. Before handing back, summarize filled sections, blockers, and whether the page is waiting on user
+   review, login, CAPTCHA, upload, or final submit.
 
 ## Default loop (SYSTEM-DESIGN / BEHAVIORAL / CODING / MOCK)
 

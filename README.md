@@ -2,9 +2,10 @@
 
 **Landing page: https://cskwork.github.io/superinterview-skill/**
 
-Interview preparation skill for coding-agent assistants. Mock interviews with rubric-graded feedback
-and targeted re-drill. System design is the flagship (graded against a full model answer); behavioral
-(STAR) and coding (algorithm) are included.
+Interview preparation and private resume helper skill for coding-agent assistants. Mock interviews
+with rubric-graded feedback and targeted re-drill. System design is the flagship (graded against a
+full model answer); behavioral (STAR), coding (algorithm), and resume/job application form autofill
+from local private context are included.
 
 ## The one rule
 
@@ -36,12 +37,14 @@ Frame -> Pose -> Respond -> Probe -> Grade -> Re-drill
 | MOCK | full timed simulation |
 | GRADE | score an answer the user already gave |
 | PLAN | build a time-boxed prep plan |
+| RESUME-FORM | fill resume, candidate profile, or job application forms from private local context |
 | TEACH-CONCEPT | explain a concept (routes to supertutor) |
 
 ## Structure
 
 ```
 SKILL.md                              router - mode table + default loop + reference map
+private/resume.md                     optional ignored local candidate context; never committed
 reference/
   mock-loop.md                        the perform-first / reveal-after loop contract
   system-design-rubric.md             10-dimension grading rubric + probing bank
