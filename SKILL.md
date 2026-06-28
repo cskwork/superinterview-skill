@@ -10,6 +10,13 @@ rubric-grade against a model answer -> re-drill the weakest dimension on a novel
 fact the user just wants stated: answer it plainly and skip this skill. This file is a router; each
 phase loads only the reference it needs.
 
+## Private candidate context (optional, local only)
+
+Before Frame, check whether `private/resume.md` exists in this skill checkout. If it exists, read it
+as private candidate context and use it to personalize behavioral prompts, resume deep-dives, and
+system-design follow-ups around the candidate's real projects. Keep it local: never commit, quote,
+or expose contact details from the private file unless the user explicitly asks.
+
 ## Core principles
 
 - **Perform first, compare second.** The user attempts the complete answer before the model answer is
@@ -64,8 +71,10 @@ phase: load only the phase reference, summarize handoff state, then continue. Fu
 `reference/mock-loop.md`.
 
 1. **Frame.** Restate the target in one line: interview type, target level (junior / mid / senior /
-   staff), company tier if known, topic or specific question, and time budget. If underspecified, ask
-   <=3 high-leverage questions (`reference/mock-loop.md`). State the rubric you will grade against.
+   staff), company tier if known, topic or specific question, and time budget. If private candidate
+   context is loaded, mention only that resume context will inform the prompts; do not summarize
+   private details up front. If underspecified, ask <=3 high-leverage questions
+   (`reference/mock-loop.md`). State the rubric you will grade against.
 2. **Pose.** Present the question the way a real interviewer does - terse, one prompt, no hints, no
    structure reveal. Do NOT show the model answer. Start the clock.
 3. **Respond.** The user answers; the interviewer waits. The user drives the structure. If the user
