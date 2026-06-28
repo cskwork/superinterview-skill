@@ -17,3 +17,9 @@
   the user explicitly confirms that action.
 - Rejected folding form filling into the mock loop because the goal is accurate private-data transfer,
   not interview practice or grading.
+
+## Skill description cleanup
+
+- Rewrote the frontmatter description to be English-only and shorter while preserving the main trigger
+  surfaces: mock interviews, grading, prep plans, and resume/application form autofill.
+- Rejected a long keyword list because the description is the routing surface and should stay concise.
