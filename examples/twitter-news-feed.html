@@ -152,137 +152,129 @@
 <main>
 <header class="title">
   <div class="eyebrow">System Design Interview / Model Answer</div>
-  <h1>Twitter 규모의 실시간 뉴스피드 시스템 설계</h1>
-  <p class="lede">읽기 비중이 압도적으로 높은 팬아웃 시스템에서, 타임라인을 언제 "만들지"가 전체 아키텍처와 정합성 모델을 결정한다. 셀럽 한 명의 트윗이 시스템 전체를 멈출 수 있다는 점이 이 문제의 핵심이다.</p>
+  <h1>트위터 규모의 실시간 뉴스피드 설계</h1>
+  <p class="lede">피드를 읽는 횟수가 글을 올리는 횟수보다 압도적으로 많은 시스템입니다. 그래서 "피드를 언제 만들어둘까"가 전체 설계를 갈라놓고, <strong>셀럽 한 명의 글이 시스템을 멈출 수 있다</strong>는 게 이 문제의 핵심입니다.</p>
   <div class="pills">
-    <span class="pill hot">fan-out tradeoff</span>
-    <span class="pill">read-heavy</span>
-    <span class="pill">celebrity problem</span>
-    <span class="pill">eventual consistency</span>
+    <span class="pill hot">미리 만들까 vs 읽을 때</span>
+    <span class="pill">읽기 비중</span>
+    <span class="pill">셀럽 문제</span>
+    <span class="pill">결과적 정합</span>
     <span class="pill">~45 min</span>
   </div>
 </header>
 
 <section id="s1">
   <h2><span class="num">01</span>요구사항 정의</h2>
-  <p>설계 전에 먼저 범위를 좁힌다. "뉴스피드"는 광범위하므로 핵심 흐름을 하나로 고정한다: 사용자가 트윗을 올리고, 팔로우한 사람들의 최신 트윗을 시간 역순으로 스크롤하며 본다. 알림, 트렌드, 검색은 v1 범위 밖으로 뺀다 - 하지만 그 경계를 <strong>명시적으로</strong> 선언하는 것이 Staff 답변의 첫 신호다.</p>
+  <p>"뉴스피드"는 범위가 넓어서 핵심 흐름 하나로 좁힙니다: <strong>사람이 글을 올리고, 내가 팔로우한 사람들의 최근 글을 시간 역순으로 스크롤하며 본다.</strong> 알림·트렌드·검색은 첫 버전 범위 밖으로 빼둡니다.</p>
   <h3>기능적 요구사항</h3>
   <ul>
-    <li>사용자가 트윗을 게시한다 (텍스트 + 미디어 참조).</li>
-    <li>사용자가 홈 타임라인(팔로우한 계정의 최신 트윗)을 연다.</li>
-    <li>사용자가 팔로우/언팔로우한다.</li>
-    <li>트윗 삭제가 타임라인에 반영된다.</li>
+    <li>사용자가 글을 올린다 (텍스트 + 사진 참조).</li>
+    <li>사용자가 홈 피드(팔로우한 계정의 최신 글)를 연다.</li>
+    <li>팔로우/언팔로우한다.</li>
+    <li>글 삭제가 피드에도 반영된다.</li>
   </ul>
-  <h3>비기능적 요구사항</h3>
+  <h3>앱이 지켜야 할 것</h3>
   <ul>
-    <li><strong>가용성</strong>이 최우선 - 피드가 안 보이면 제품이 아니다.</li>
-    <li>타임라인 읽기는 <strong>저지연</strong> (p99 &lt; 200ms). 트윗 게시는 몇 초의 비동기 지연을 감내한다.</li>
-    <li><strong>결과적 정합성</strong> 허용 - 방금 올린 트윗이 팔로워에게 수 초 내로 보이면 된다. "내 피드에 방금 올린 내 트윗"만은 강하게 read-your-writes.</li>
-    <li>스파이크 내성 (이벤트, 셀럽 사망 등).</li>
+    <li><strong>피드가 무조건 보여야</strong> — 안 보이면 서비스가 아닙니다.</li>
+    <li>피드는 <strong>빨리 떠야</strong> (p99 &lt; 200ms). 글 올리기는 몇 초 비동기 지연 OK.</li>
+    <li>방금 올린 글이 <strong>몇 초 안에 팔로워에게 보이면 됨</strong> (결과적 정합 OK). 단 "내 피드에 방금 올린 내 글"은 바로 보이게.</li>
+    <li>스파이크(큰 사건, 셀럽 사망 등)에도 버텨야.</li>
   </ul>
-  <div class="callout staff">
-    <div class="label">Staff signal - 모호성 탐색</div>
-    <p>문제를 받자마자 "정렬 기준이 시간인가 관련도인가?", "최근 N개만인가 무한 스크롤인가?", "미디어는 범위 안인가?"를 묻는다. 이 질문들이 정렬/랭킹 서비스를 넣을지 말지, 그리고 팬아웃 비용을 결정한다. 묻지 않고 바로 박스를 그리면 Staff 바에서 점수가 깎인다.</p>
-  </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>이 모호성 질문들은 우아함이 아니라 <strong>설계 분기점</strong>이다. "정렬이 관련도"라면 단순 시간 역순 리스트 대신 랭킹 서비스(임베딩·피드 모델)가 필요해져 아키텍처가 완전히 달라진다. "무한 스크롤"이면 타임라인 캐시 용량이 커지고, "최근 N개"면 Redis LIST + LTRIM으로 통제된다.</p><p>범위 밖(알림·검색·트렌드)을 명시하는 것은 그 자체로 설계 능력이다 — "모든 것을 다 만들겠다"는 답은 오히려 깎인다. 45분 안에 깊이 있게 설계하려면 하나의 핵심 흐름(게시→팬아웃→읽기)에 에너지를 집중해야 하고, 그 집중의 전제가 범위 설정이다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><strong>Staff 시그널 — 모호성 탐색:</strong> 문제를 받자마자 "정렬이 시간인가 관련도인가", "최근 N개만인가 무한 스크롤인가", "미디어는 범위 안인가"를 먼저 묻는다. 이 질문들은 단순한 우아함이 아니라 <em>설계 분기점</em>이다 — 관련도 정렬이면 랭킹 서비스가 필요해 아키텍처가 완전히 달라지고, 무한 스크롤이면 피드 캐시 용량이 커진다.</p><p>범위 밖(알림·검색·트렌드)을 명시적으로 빼는 것도 Staff 신호다 — 45분 안에 깊이 있게 설계하려면 핵심 흐름(게시→퍼뜨리기→읽기)에 에너지를 집중해야 하고, 그 전제가 범위 설정이다. "모든 것을 다 만들겠다"는 답은 오히려 깎인다.</p></div>
   </details>
 </section>
 
 <section id="s2">
-  <h2><span class="num">02</span>용량 추정 (back-of-envelope)</h2>
-  <p>트위터급 스케일을 가정한다. 숫자의 정확성보다 <strong>읽기:쓰기 비대칭</strong>을 잡아내는 것이 중요하다 - 이 비율이 팬아웃 전략을 결정한다.</p>
+  <h2><span class="num">02</span>용량 추정</h2>
+  <p>트위터급을 가정합니다. 숫자의 정확성보다 <strong>한 가지 비율</strong>을 잡아내는 게 중요합니다 — 읽기가 쓰기보다 압도적으로 많다는 점. 이 비율이 "피드를 미리 만들어두자"는 선택으로 이어집니다.</p>
   <div class="metrics">
-    <div class="metric"><div class="v">300M</div><div class="k">일간 활성 사용자 (DAU)</div></div>
-    <div class="metric"><div class="v">~3k → 15k</div><div class="k">트윗 QPS (평균 → 피크)</div></div>
-    <div class="metric"><div class="v">~35k → 200k</div><div class="k">피드 읽기 QPS (평균 → 피크)</div></div>
-    <div class="metric"><div class="v">~100:1</div><div class="k">읽기 : 쓰기 비율</div></div>
+    <div class="metric"><div class="v">3억</div><div class="k">일간 활성 사용자 (DAU)</div></div>
+    <div class="metric"><div class="v">3천→1.5만</div><div class="k">초당 글 (평균→피크)</div></div>
+    <div class="metric"><div class="v">3.5만→20만</div><div class="k">초당 피드 읽기 (평균→피크)</div></div>
+    <div class="metric"><div class="v">약 100:1</div><div class="k">읽기 : 쓰기 비율</div></div>
   </div>
   <div class="callout capacity">
-    <div class="label">저장 추정</div>
+    <div class="label">저장은 얼마나?</div>
     <ul>
-      <li>트윗 본문 ~500 byte (텍스트 + 메타데이터). 250M/일 × 500B ≈ <span class="inline-mono">125 GB/일</span> → 연 ~45 TB.</li>
-      <li>미디어는 객체 스토리지(S3)로 분리 - DB에 참조만 둔다.</li>
-      <li>타임라인 캐시: 사용자당 최근 800개 트윗 ID × 8 byte ≈ 6.4 KB/사용자 → 300M 사용자 = 약 2 TB Redis 메모리 (복제/여유 포함).</li>
+      <li>글 본문 ~500 byte. 하루 2.5억 글 × 500B ≈ <span class="inline-mono">125 GB/일</span> → 연 ~45 TB.</li>
+      <li>사진·영상은 객체 저장소(S3)로 분리 — DB에는 주소만.</li>
+      <li>피드 캐시: 한 사람당 최근 800개 글 ID × 8 byte ≈ 6.4 KB → 3억 명 = 약 2TB Redis 메모리(복제·여유 포함).</li>
     </ul>
   </div>
-  <p><strong>결론:</strong> 압도적으로 읽기가 많다 → 읽기 경로를 O(1)로 만드는 쪽(사전 계산)이 자연스럽다. 하지만 그 비용이 어디로 가는지가 6번의 핵심이다.</p>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>100:1이라는 비율이 <strong>fan-out 전략을 강제한다</strong>는 논리를 명시하는 것이 핵심이다. 읽기가 100배 많으면, "읽기 시마다 계산"(pull)보다 "쓰기 1회당 읽기 100회를 O(1)로 미리 만들어 두는"(push) 쪽이 총 비용이 낮다 — 그래서 타임라인 사전 계산이 자연스러운 출발점이다.</p><p>하지만 같은 100:1이라도 <strong>셀럽 한 명의 팬아웃 비용</strong>은 일반 사용자의 수백~수만 배다(팔로워 1억 = 단일 트윗이 1억 번 쓰기). 평균 비율만 보면 이 특이점이 안 보인다 — 용량 추정의 진짜 가치는 "평균이 아닌 극단"을 드러내는 데 있다. 그래서 셀럽 문제(7번)가 별도 차원으로 등장한다.</p></div>
+  <p><strong>결론:</strong> 읽기가 압도적으로 많으니, 읽기를 아주 빠르게(O(1)) 만드는 쪽 — <strong>피드를 미리 만들어두는</strong> 쪽 — 이 자연스럽습니다. 단 그 비용이 어디로 가는지가 6번의 핵심입니다.</p>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>100:1이라는 비율이 <strong>fan-out 전략을 강제한다</strong>는 논리를 명시하는 게 핵심이다. 읽기가 100배 많으면, "읽기 때마다 계산"(pull)보다 "쓰기 1회당 읽기 100회를 미리 만들어 두는"(push) 쪽이 총 비용이 낮다 — 그래서 피드 사전 계산이 자연스러운 출발점이다.</p><p>하지만 같은 100:1이라도 <strong>셀럽 한 명의 팬아웃 비용</strong>은 일반 사용자의 수만~수십만 배다(팔로워 1억 = 단일 글이 1억 번 쓰기). 평균 비율만 보면 이 특이점이 안 보인다 — 용량 추정의 진짜 가치는 "평균이 아닌 극단"을 드러내는 데 있다. 그래서 셀럽 문제(7번)가 별도 차원으로 등장한다.</p></div>
   </details>
 </section>
 
 <section id="s3">
   <h2><span class="num">03</span>전체 아키텍처</h2>
-  <p>서비스를 읽기 경로와 쓰기 경로로 분리한다. CDN/LB → API 게이트웨이(인증, 레이트리밋) 뒤에 두 서비스가 갈라진다.</p>
+  <p>시스템을 <strong>"글 올리는 쪽"</strong>과 <strong>"피드 보는 쪽"</strong>으로 나눕니다. 글 서비스는 글을 저장하고 이벤트만 쏩니다. <strong>피드는 미리 만들어둔 리스트</strong>이고, 피드 서비스는 그것을 읽기만 합니다.</p>
   <div class="diagram">
-    <div class="layer-label">쓰기 경로 (tweet publish)</div>
+    <div class="layer-label">글 올리기 (쓰기)</div>
     <div class="row">
-      <span class="node">Client</span><span class="arrow">→</span>
-      <span class="node">API Gateway</span><span class="arrow">→</span>
-      <span class="node accent">Tweet Service</span><span class="arrow">→</span>
-      <span class="node">Postgres (sharded)</span>
+      <span class="node">클라이언트</span><span class="arrow">→</span>
+      <span class="node">API 게이트웨이</span><span class="arrow">→</span>
+      <span class="node accent">글 서비스</span><span class="arrow">→</span>
+      <span class="node">Postgres (샤딩)</span>
     </div>
     <div class="row" style="margin-top:8px">
-      <span class="node accent">Tweet Service</span><span class="arrow">→</span>
-      <span class="node">Kafka: tweet-published</span><span class="arrow">→</span>
-      <span class="node green">Fan-out Worker</span><span class="arrow">→</span>
-      <span class="node green">Redis Timeline (per user)</span>
+      <span class="node accent">글 서비스</span><span class="arrow">→</span>
+      <span class="node">Kafka: 글-게시됨</span><span class="arrow">→</span>
+      <span class="node green">퍼뜨리기 워커</span><span class="arrow">→</span>
+      <span class="node green">Redis 피드 (사용자별)</span>
     </div>
-    <div class="layer-label">읽기 경로 (feed read)</div>
+    <div class="layer-label">피드 보기 (읽기)</div>
     <div class="row">
-      <span class="node">Client</span><span class="arrow">→</span>
-      <span class="node">API Gateway</span><span class="arrow">→</span>
-      <span class="node green">Timeline Service</span><span class="arrow">→</span>
-      <span class="node green">Redis Timeline</span>
-      <span class="arrow">(+ merge)</span><span class="node amber">celeb recent tweets</span>
+      <span class="node">클라이언트</span><span class="arrow">→</span>
+      <span class="node">API 게이트웨이</span><span class="arrow">→</span>
+      <span class="node green">피드 서비스</span><span class="arrow">→</span>
+      <span class="node green">Redis 피드</span>
+      <span class="arrow">(+ 합치기)</span><span class="node amber">셀럽 최근 글</span>
     </div>
     <div class="layer-label">지원</div>
     <div class="row">
-      <span class="node">Social Graph Service (follows)</span>
+      <span class="node">팔로우 그래프 서비스</span>
       <span class="arrow"></span>
-      <span class="node">Object Storage (media)</span>
+      <span class="node">객체 저장소 (사진)</span>
       <span class="arrow"></span>
-      <span class="node">Elasticsearch (검색, v2)</span>
+      <span class="node">검색 (v2)</span>
     </div>
   </div>
-  <p>핵심 분리: <code>Tweet Service</code>는 트윗을 영속화하고 이벤트만 발행한다. <strong>타임라인은 Redis에 사전 계산된 리스트</strong>이고 <code>Timeline Service</code>는 그것을 읽기만 한다. 셀럽 트윗은 사전 계산에서 빼고 읽기 시 병합한다(7번).</p>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>왜 읽기/쓰기 경로를 서로 다른 서비스로 분리하는가 — <strong>스케일링 단위가 다르기 때문</strong>이다. 읽기(200k QPS 피크)는 stateless Timeline Service 인스턴스를 무한히 복제하면 되지만, 쓰기(fan-out worker)는 팔로워 수에 비례하는 CPU/메모리 작업이라 인스턴스 증설이 곧 처리량이다. 이 둘을 한 서비스에 묶으면 읽기 스파이크가 fan-out worker를 굶겨 타임라인 갱신이 밀린다.</p><p>Tweet Service가 "영속 + 이벤트 발행"만 하고 타임라인을 직접 건드리지 않는 것은 <strong>결합도 분리</strong>다 — fan-out이 실패해도 트윗 자체는 안전하고, fan-out 만료를 재처리해도 Tweet Service는 영향받지 않는다. 이 분리 덕에 정합성 경계(9번)를 긋기 쉬워진다.</p></div>
+  <p>핵심: 글 서비스는 글을 영속화하고 이벤트만 발행합니다. <strong>피드는 Redis에 미리 만들어둔 리스트</strong>이고 피드 서비스는 그것을 읽기만 합니다. 셀럽 글은 미리 만드는 것에서 빼고, 읽을 때 합쳐 줍니다(7번).</p>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>왜 읽기/쓰기를 서로 다른 서비스로 나누는가 — <strong>스케일링 단위가 다르기 때문</strong>이다. 읽기(200k QPS 피크)는 무상태 피드 서비스 인스턴스를 무한히 복제하면 되지만, 쓰기(fan-out 워커)는 팔로워 수에 비례하는 CPU/메모리 작업이라 인스턴스 증설이 곧 처리량이다. 한 서비스에 묶으면 읽기 스파이크가 fan-out 워커를 굶겨 피드 갱신이 밀린다.</p><p>글 서비스가 "영속 + 이벤트 발행"만 하고 피드를 직접 건드리지 않는 것은 <strong>결합도 분리</strong>다 — fan-out이 실패해도 글 자체는 안전하고, fan-out 만료를 재처리해도 글 서비스는 영향받지 않는다. 이 분리 덕에 정합성 경계(9번)를 긋기 쉬워진다.</p></div>
   </details>
 </section>
 
 <section id="s4">
   <h2><span class="num">04</span>핵심 플로우</h2>
-  <h3>트윗 게시 (쓰기)</h3>
+  <h3>글 올리기 (쓰기)</h3>
   <ol>
-    <li>클라이언트가 트윗 제출. API 게이트웨이에서 인증/레이트리밋.</li>
-    <li><code>Tweet Service</code>가 내용 검증 후 Postgres 샤드에 트윗 저장 (상태 <code>POSTED</code>).</li>
-    <li>미디어는 이미 객체 스토리지에 올라있고 참조만 저장.</li>
-    <li><code>tweet-published</code> 이벤트를 Kafka에 발행하고 클라이언트에는 즉시 200 OK. - <strong>동기 경로는 여기서 끝</strong>.</li>
+    <li>클라이언트가 글 제출. 게이트웨이에서 인증/요청제한.</li>
+    <li><code>글 서비스</code>가 내용 확인 후 Postgres에 저장 (상태 <code>게시됨</code>).</li>
+    <li>사진은 이미 객체 저장소에 올라있고 주소만 저장.</li>
+    <li><code>글-게시됨</code> 이벤트를 Kafka에 쏘고 클라이언트에는 즉시 200 OK — <strong>동기 경로는 여기서 끝</strong>.</li>
   </ol>
-  <h3>타임라인 읽기 (읽기)</h3>
+  <h3>피드 보기 (읽기)</h3>
   <ol>
-    <li><code>Timeline Service</code>가 Redis에서 해당 사용자의 사전 계산 리스트를 읽는다 (O(1), 단순 리스트 읽기).</li>
-    <li>팔로우한 셀럽들의 최근 트윗을 가져와 병합한다.</li>
-    <li>삭제된 트윗은 tombstone/필터링으로 제외.</li>
-    <li>페이징하여 반환 (cursor 기반).</li>
+    <li><code>피드 서비스</code>가 Redis에서 그 사용자의 미리 만들어둔 리스트를 읽습니다 (O(1), 그냥 리스트 읽기).</li>
+    <li>팔로우한 셀럽들의 최근 글을 가져와 합칩니다.</li>
+    <li>삭제된 글은 tombstone/필터링으로 뺍니다.</li>
+    <li>페이징해서 반환 (커서 기반).</li>
   </ol>
-  <div class="callout staff">
-    <div class="label">Staff signal - 제약의 연쇄</div>
-    <p>"쓰기를 비동기로 끝내고 200 OK를 먼저 준다"는 선택이 <strong>read-your-writes를 깰 수 있다</strong>는 제약을 만든다. 그래서 게시 직후엔 클라이언트가 자기 피드를 열 때 내 트윗을 optimistic하게 맨 위에 끼워 넣거나, fan-out을 내 타임라인만 동기로 먼저 처리한다. 한 선택이 다른 곳의 요구사항을 강제한다는 것을 보여주는 것이 Staff 답변이다.</p>
-  </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>"게시 직후 200 OK를 주고 fan-out은 비동기"라는 선택은 빠른 응답을 주지만 <strong>read-your-writes를 깬다</strong> — 방금 올린 트윗이 내 피드에 안 보일 수 있다. 사용자는 이를 버그로 느낀다. 해결책은 (a) 클라이언트가 올린 트윗을 optimistic하게 피드 맨 위에 끼워 넣거나, (b) fan-out을 "내 타임라인만" 동기로 먼저 쓰고 나머지는 비동기.</p><p>이것은 <strong>"동기 종결점을 어디로 정하느냐가 다른 요구사항을 강제한다"</strong>는 전형적인 사례다. 응답성을 택하면 read-your-writes 비용이 생기고, read-your-writes를 택하면 응답 지연이 커진다. Staff는 이 교환을 인식하고 둘 다 답을 가진다 — 여기선 (b)가 더 견고하다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>"게시 직후 200 OK를 주고 fan-out은 비동기"라는 선택은 빠른 응답을 주지만 <strong>read-your-writes를 깬다</strong> — 방금 올린 글이 내 피드에 안 보일 수 있다. 사용자는 이를 버그로 느낀다.</p><p>해결: (a) 클라이언트가 올린 글을 optimistic하게 피드 맨 위에 끼워 넣거나, (b) fan-out을 "내 피드만" 동기로 먼저 쓰고 나머지는 비동기. 이것은 <strong>"동기 종결점을 어디로 정하느냐가 다른 요구사항을 강제한다"</strong>는 전형적 사례다. 응답성을 택하면 read-your-writes 비용이 생기고, read-your-writes를 택하면 응답 지연이 커진다. Staff는 이 교환을 인식하고 둘 다 답을 가진다 — 여기선 (b)가 더 견고하다.</p></div>
   </details>
 </section>
 
 <section id="s5">
   <h2><span class="num">05</span>데이터 모델</h2>
-  <p>트윗/팔로우는 관계형(ACID 필요), 타임라인은 Redis(속도). DB는 user_id 기준 샤딩.</p>
+  <p>글·팔로우는 표(관계형)에 — 정확해야 해서. 피드는 Redis(빠르게). DB는 user_id 기준 샤딩합니다.</p>
   <div class="schema">
     <div class="table-card">
-      <div class="tname">tweets</div>
+      <div class="tname">tweets (글)</div>
       <div class="field"><span class="pk">tweet_id</span></div>
       <div class="field">user_id <span class="idx">idx</span></div>
       <div class="field">content</div>
@@ -290,163 +282,163 @@
       <div class="field">created_at <span class="idx">idx</span></div>
     </div>
     <div class="table-card">
-      <div class="tname">follows</div>
+      <div class="tname">follows (팔로우)</div>
       <div class="field"><span class="pk">follower_id</span></div>
       <div class="field">followee_id <span class="idx">idx</span></div>
       <div class="field">created_at</div>
     </div>
     <div class="table-card">
-      <div class="tname">timeline (Redis)</div>
+      <div class="tname">timeline (Redis 피드)</div>
       <div class="field"><span class="pk">user_id</span> → list</div>
-      <div class="field">[tweet_id, ...] sorted by ts</div>
-      <div class="field">cap: ~800 entries</div>
+      <div class="field">[tweet_id, ...] 시간순</div>
+      <div class="field">최대 ~800개</div>
     </div>
   </div>
   <div class="callout">
     <div class="label" style="color:var(--text-dim)">구현 메모</div>
-    <p>타임라인은 Redis <span class="inline-mono">LIST</span> (LPUSH + LTRIM 0 799) 또는 <span class="inline-mono">ZSET</span> (score=timestamp). ZSET이 정렬·병합에 유리하지만 메모리가 더 든다. 최근 N개만 보관하므로 용량은 통제된다. <strong>tweet_id에 timestamp를 인코딩</strong> (Snowflake)하면 정렬키가 자연스럽고 시간 기반 샤딩도 된다.</p>
+    <p>피드는 Redis <span class="inline-mono">LIST</span>(LPUSH + LTRIM 0 799) 또는 <span class="inline-mono">ZSET</span>(점수=시간). ZSET이 정렬·합치기에 유리하지만 메모리가 더 듭니다. <strong>tweet_id에 시간을 인코딩</strong>(Snowflake)하면 정렬 키가 자연스럽고 시간 기반 샤딩도 됩니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p><strong>Snowflake ID</strong>는 (timestamp | worker_id | sequence)를 비트로 인코딩한다. 한 필드로 정렬 키 + 분산 생성(중앙 할당 불필요) + 시간 기반 보관/삭제(오래된 tweet_id 범위 삭제)를 모두 해결한다 — 트위터가 실제로 쓰는 패턴이다.</p><p>LIST vs ZSET의 선택은 <strong>병합 필요성</strong>에 달린다. 셀럽 트윗을 읽기 시 병합해야 하면, 그 트윗들을 점수(시간)순으로 끼워 넣어야 하므로 ZSET이 자연스럽다. 반면 일반 사용자 타임라인만 쓰면 LIST + LTRIM이 더 가볍다. "최근 800개" cap은 Redis 메모리를 상한 없이 두면 300M 사용자×팔로우 수로 폭발하기 때문이다 — cap을 둬야 2TB 선에서 통제된다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><strong>Snowflake ID</strong>는 (timestamp | worker_id | sequence)를 비트로 인코딩한다. 한 필드로 정렬 키 + 분산 생성(중앙 할당 불필요) + 시간 기반 보관/삭제(오래된 tweet_id 범위 삭제)를 모두 해결한다 — 트위터가 실제로 쓰는 패턴이다.</p><p>LIST vs ZSET의 선택은 <strong>합치기 필요성</strong>에 달린다. 셀럽 글을 읽기 때 합쳐야 하면 점수(시간)순으로 끼워 넣어야 하므로 ZSET이 자연스럽다. 반면 일반 사용자 피드만 쓰면 LIST + LTRIM이 더 가볍다. "최근 800개" cap은 Redis 메모리를 상한 없이 두면 3억 사용자 × 팔로우 수로 폭발하기 때문이다 — cap을 둬야 2TB 선에서 통제된다.</p></div>
   </details>
 </section>
 
 <section id="s6">
-  <h2><span class="num">06</span>딥다이브: 팬아웃 전략 (핵심 트레이드오프)</h2>
-  <p>이 문제의 심장이다. 타임라인을 "언제" 조립하느냐가 모든 것을 결정한다.</p>
+  <h2><span class="num">06</span>딥다이브: 피드를 언제 만들까 (핵심 트레이드오프)</h2>
+  <p>이 문제의 심장입니다. 피드를 "언제" 조립하느냐가 모든 걸 결정합니다.</p>
   <div class="cmp">
     <div class="col push">
-      <h4><span class="dot"></span>Fan-out-on-write (push)</h4>
+      <h4><span class="dot"></span>올릴 때 만들기 (push)</h4>
       <ul>
-        <li>트윗 게시 시 모든 팔로워의 타임라인에 push</li>
-        <li><strong>읽기 O(1)</strong> - 리스트 읽기만</li>
+        <li>글 올리면 모든 팔로워 피드에 밀어 넣기</li>
+        <li><strong>읽기 O(1)</strong> — 리스트 읽기만</li>
         <li>쓰기 비용 = 팔로워 수</li>
         <li>팔로워 많으면 쓰기 폭발</li>
-        <li>비활성 사용자 타임라인도 갱신 (낭비)</li>
+        <li>안 쓰는 사용자 피드도 갱신 (낭비)</li>
       </ul>
     </div>
     <div class="col pull">
-      <h4><span class="dot"></span>Fan-out-on-read (pull)</h4>
+      <h4><span class="dot"></span>읽을 때 만들기 (pull)</h4>
       <ul>
-        <li>읽기 시 팔로우 전원의 최근 트윗을 pull·병합</li>
-        <li><strong>쓰기 O(1)</strong> - 저장 1회</li>
+        <li>읽을 때 팔로우 전원의 최근 글을 가져와 합치기</li>
+        <li><strong>쓰기 O(1)</strong> — 저장 1회</li>
         <li>읽기 비용 = 팔로우 수</li>
         <li>팔로우 많으면 읽기 폭발·느림</li>
         <li>활성 사용자에게 적합</li>
       </ul>
     </div>
   </div>
-  <p>정답은 둘 중 하나가 아니라 <strong>하이브리드</strong>다:</p>
+  <p>정답은 둘 중 하나가 아니라 <strong>섞어 쓰기</strong>입니다:</p>
   <ul>
-    <li><strong>일반 사용자</strong> (팔로워 &lt; 임계값, 예: 10만): fan-out-on-write. 타임라인을 사전 계산.</li>
-    <li><strong>셀럽</strong> (팔로워 ≥ 임계값): fan-out-on-write를 하지 않는다. 대신 읽기 시 팔로워의 타임라인에 셀럽의 최근 트윗을 <strong>pull해서 병합</strong>.</li>
+    <li><strong>일반 사용자</strong> (팔로워 &lt; 임계값, 예: 10만): 올릴 때 만들기. 피드 미리 계산.</li>
+    <li><strong>셀럽</strong> (팔로워 ≥ 임계값): 미리 만들지 않는다. 대신 읽을 때 팔로워의 피드에 셀럽의 최근 글을 <strong>가져와 합침</strong>.</li>
   </ul>
   <div class="callout tradeoff">
-    <div class="label">트레이드오프 - 왜 이 경계인가</div>
-    <p>임계값은 "셀럽 한 번의 게시가 시스템에 가하는 fan-out 부하 vs 그 셀럽의 모든 팔로워가 읽기 시 병합 비용"의 교차점이다. 임계값을 낮추면 쓰기 부하가 줄지만 읽기 병합이 많아진다. <strong>이 임계값을 설정값으로 두고 관측하며 조정</strong>한다는 점까지 말하면 Staff다 - 정답이 아니라 조절 가능한 파라미터임을 아는 것.</p>
+    <div class="label">왜 이 경계인가</div>
+    <p>임계값은 "셀럽 한 번의 글이 시스템에 가하는 부하 vs 그 셀럽 팔로워 전원이 읽을 때 합치는 비용"이 만나는 지점입니다. <strong>이 값을 설정으로 두고 관측하며 조정</strong>한다고까지 말하면 Staff입니다 — 정답이 아니라 조절 가능한 다이얼이라는 뜻.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>하이브리드 분기의 경계는 <strong>"셀럽 한 번의 게시 fan-out 비용 vs 그 셀럽의 모든 팔로워가 읽기마다 병합하는 비용"의 교차점</strong>이다. 임계값 이상의 팔로워를 가진 사용자는 push 비용이 pull 병합 비용보다 커지므로 push에서 빼는 것이다.</p><p>이 임계값은 고정값이 아니라 <strong>관측하며 튜닝하는 파라미터</strong>다 — 팔로워당 평균 읽기 빈도(활성도)에 따라 교차점이 움직이기 때문이다. Staff 답변은 "10만으로 했다"에서 끝나지 않고 "이 값을 대시보드로 모니터링하며 fan-out worker 지연과 읽기 병합 지연을 균형 있게 유지하도록 조정한다"까지 간다. 정답이 아니라 조절 가능한 다이얼임을 아는 것이 핵심.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>하이브리드 분기의 경계는 <strong>"셀럽 한 번의 게시 fan-out 비용 vs 그 셀럽 팔로워 전원이 읽기마다 합치는 비용"의 교차점</strong>이다. 임계값 이상의 팔로워를 가진 사용자는 push 비용이 pull 합치기 비용보다 커지므로 push에서 빼는 것이다.</p><p>이 임계값은 고정값이 아니라 <strong>관측하며 튜닝하는 파라미터</strong>다 — 팔로워당 평균 읽기 빈도(활성도)에 따라 교차점이 움직인다. Staff 답변은 "10만으로 했다"에서 끝나지 않고 "이 값을 대시보드로 모니터링하며 fan-out 워커 지연과 읽기 합치기 지연을 균형 있게 유지하도록 조정한다"까지 간다. 정답이 아니라 조절 가능한 다이얼임을 아는 것이 핵심.</p></div>
   </details>
 </section>
 
 <section id="s7">
   <h2><span class="num">07</span>셀럽 문제 (hot-key)</h2>
-  <p>팔로워 1억 명인 셀럽이 트윗하면 fan-out-on-write는 1억 번 쓰기를 시도한다 - 단일 트윗이 시스템을 마비시킨다. 위 하이브리드가 1차 해결이지만, hot-key는 더 남는다.</p>
+  <p>팔로워 1억 명인 셀럽이 글을 올리면, "올릴 때 만들기"는 1억 번 쓰기를 시도합니다 — <strong>글 한 줄이 시스템을 멈춥니다.</strong> 위 섞어쓰기가 1차 해결이지만, hot-key는 더 남습니다.</p>
   <div class="callout fail">
     <div class="label">완화책</div>
     <ul>
-      <li><strong>셀럽은 push 제외</strong> (위와 동일) - 읽기 시에만 병합.</li>
-      <li>병합 시 셀럽 트윗을 별도 캐시 계층에서 가져온다 - 한 셀럽의 최근 트윗은 전역 1곳에만 두고 모든 팔로워가 공유 읽기.</li>
-      <li>핫 게시물은 fan-out을 <strong>점진적/분할</strong> 처리 - 모든 팔로워를 한 번에가 아니라 시간에 걸쳐 채운다 (약간의 결과적 정합성 감내).</li>
-      <li>timeline Redis를 클러스터링하고 hot user의 파티션을 복제하여 읽기 부하 분산.</li>
+      <li><strong>셀럽은 미리 만들기에서 제외</strong> — 읽을 때만 합치기.</li>
+      <li>합칠 때 셀럽 글을 별도 캐시에서 가져옵니다 — 한 셀럽의 최근 글은 전역 한 곳에만 두고 모든 팔로워가 같이 읽기.</li>
+      <li>뜨거운 글은 퍼뜨리기를 <strong>점진적/분할</strong> 처리 — 모든 팔로워에게 한 번에가 아니라 시간에 걸쳐 채움 (결과적 정합 약간 감내).</li>
+      <li>피드 Redis를 클러스터링하고, 인기 사용자의 파티션은 복제해 읽기 부하 분산.</li>
     </ul>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>hot-key 문제의 본질은 <strong>"단일 키에 대한 읽기/쓰기가 한 파티션에 몰려 그 파티션만 포화된다"</strong>는 것이다. 셀럽의 최근 트윗 캐시는 모든 팔로워가 동시에 읽으려 해서 한 Redis 노드가 뜨거워진다.</p><p>해결은 <strong>"논리적으로 하나인 데이터를 물리적으로 여러 복제본으로 나누기"</strong>다 — 셀럽 트윗 캐시를 N개 복제하고 읽기를 라운드로빈으로 분산. 또한 읽기 시 병합 비용이 팔로워 전체에 걸쳐 누적되므로, 병합을 캐시하거나(사용자별로 병합 결과를 짧은 TTL로 캐시) 백그라운드에서 미리 병합. 핵심 통찰: <strong>hot-key는 제거되지 않고 분산될 뿐</strong>이다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>hot-key의 본질은 <strong>"단일 키에 대한 읽기/쓰기가 한 파티션에 몰려 그 파티션만 포화된다"</strong>는 것이다. 셀럽의 최근 글 캐시는 모든 팔로워가 동시에 읽으려 해서 한 Redis 노드가 뜨거워진다.</p><p>해결은 <strong>"논리적으로 하나인 데이터를 물리적으로 여러 복제본으로 나누기"</strong>다 — 셀럽 글 캐시를 N개 복제하고 읽기를 라운드로빈으로 분산. 또한 읽을 때 합치기 비용이 팔로워 전체에 누적되므로, 합치기를 캐시하거나(사용자별로 합친 결과를 짧은 TTL로 캐시) 백그라운드에서 미리 합치기. 핵심 통찰: <strong>hot-key는 제거되지 않고 분산될 뿐</strong>이다.</p></div>
   </details>
 </section>
 
 <section id="s8">
   <h2><span class="num">08</span>스케일 &amp; 병목</h2>
   <ul>
-    <li><strong>트윗 DB 병목</strong> → user_id 기반 샤딩, 읽기 복제본. tweet_id(Snowflake)에 시간+샤드 인코딩.</li>
-    <li><strong>fan-out worker 병목</strong> → Kafka 파티션으로 평행화, consumer autoscale (lag 기반).</li>
-    <li><strong>timeline Redis 용량</strong> → 사용자당 cap(LTRIM), 클러스터 샤딩, 비활성 사용자 타임라인은 지연/요청 시 재계산.</li>
-    <li><strong>팔로우 그래프</strong> → 별도 그래프 서비스/캐시, fan-out 시 팔로워 목록을 캐시.</li>
+    <li><strong>글 DB</strong> → user_id 샤딩, 읽기 복제본. tweet_id(Snowflake)에 시간+샤드 인코딩.</li>
+    <li><strong>퍼뜨리기 워커</strong> → Kafka 파티션으로 평행화, consumer autoscale (lag 기반).</li>
+    <li><strong>피드 Redis 용량</strong> → 사용자당 cap(LTRIM), 클러스터 샤딩, 비활성 사용자 피드는 지연/요청 시 재계산.</li>
+    <li><strong>팔로우 그래프</strong> → 별도 그래프 서비스/캐시, 퍼뜨릴 때 팔로워 목록 캐시.</li>
   </ul>
   <div class="callout staff">
-    <div class="label">Staff signal - 병목의 이동</div>
-    <p>"fan-out-on-write로 읽기를 O(1)로 만들면 병목이 쓰기/워커/Redis 용량으로 옮겨간다" - 해결이 병목을 제거하는 게 아니라 <strong>옮긴다</strong>는 점을 말하는 것이 핵심이다. 각 병목에 대응책을 하나씩 매핑한다.</p>
+    <div class="label">Staff 시그널 — 병목의 이동</div>
+    <p>"미리 만들기로 읽기를 O(1)로 만들면 병목이 쓰기/워커/Redis 용량으로 옮겨간다" — 해결이 병목을 없애는 게 아니라 <strong>옮긴다</strong>는 점을 말하는 게 핵심입니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>병목 이동의 구체적 사슬: (1) 읽기 경로 병목 → 사전 계산(fan-out-on-write)으로 해결 → 병목은 <strong>fan-out worker CPU</strong>로 이동. (2) worker 병목 → Kafka 파티션 + autoscale로 해결 → 병목은 <strong>timeline Redis 용량</strong>으로 이동. (3) Redis 용량 → 사용자당 cap으로 해결 → 병목은 <strong>비활성 사용자 처리 낭비</strong>로 이동(지연 계산으로 해결).</p><p>이 사슬을 보여주는 것이 핵심이다. 각 해결은 병목을 <strong>없애는 게 아니라 다른 곳으로 옮긴다</strong>는 점, 그리고 언젠가 어디서든 또 막힐 것이라는 점을 인정하는 것이 Staff 시그널이다. "다 풀었다"는 답은 신뢰받지 못한다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>병목 이동의 사슬: (1) 읽기 병목 → 미리 계산(fan-out-on-write)으로 해결 → 병목은 <strong>fan-out 워커 CPU</strong>로 이동. (2) 워커 병목 → Kafka 파티션 + autoscale → 병목은 <strong>피드 Redis 용량</strong>으로 이동. (3) Redis 용량 → 사용자당 cap → 병목은 <strong>비활성 사용자 처리 낭비</strong>로 이동(지연 계산으로 해결).</p><p>이 사슬을 보여주는 게 핵심이다. 각 해결은 병목을 <strong>없애는 게 아니라 다른 곳으로 옮긴다</strong>는 점, 그리고 언젠가 어디서든 또 막힐 것이라는 점을 인정하는 것이 Staff 시그널이다. "다 풀었다"는 답은 신뢰받지 못한다.</p></div>
   </details>
 </section>
 
 <section id="s9">
   <h2><span class="num">09</span>정합성 &amp; 장애 처리</h2>
-  <p>타임라인은 <strong>결과적 정합성</strong>이 허용된다 - 트윗이 수 초 내에 퍼지면 된다. 단, "내가 올린 내 트윗"은 read-your-writes를 지킨다.</p>
+  <p>피드는 <strong>"몇 초 안에 퍼지면 OK"</strong>를 허용합니다 (결과적 정합). 단, "내가 올린 내 글"은 바로 보이게(read-your-writes) 지킵니다.</p>
   <div class="callout fail">
     <div class="label">장애 시나리오</div>
     <ul>
-      <li><strong>fan-out 도중 worker 장애</strong> → Kafka 오프셋 기반 재시도, 최종적 전달. 누락 사용자는 읽기 시 느린 경로로 복구.</li>
-      <li><strong>트윗 삭제</strong> → tombstone 이벤트 발행, fan-out worker가 각 타임라인에서 제거. 늦어도 읽기 시 필터링으로 안전망.</li>
-      <li><strong>Redis 장애</strong> → 읽기 경로가 DB 풀백(팔로우별 pull 병합)으로 전환, 단 레이트리밋으로 DB 보호. 부분 복구 후 캐시 재워밍.</li>
-      <li><strong>Kafka 지연</strong> → 사용자에게는 "잠시 후 다시" 중간 상태 노출; 게시 직후엔 read-your-writes 낙관적 삽입.</li>
+      <li><strong>퍼뜨리는 중 워커 장애</strong> → Kafka 오프셋 기반 재시도, 최종 전달. 누락 사용자는 읽을 때 느린 경로로 복구.</li>
+      <li><strong>글 삭제</strong> → tombstone 이벤트 발행, 워커가 각 피드에서 제거. 늦어도 읽을 때 필터링으로 안전망.</li>
+      <li><strong>Redis 장애</strong> → 읽기가 DB 풀백(팔로우별 pull 합치기)으로 전환, 단 레이트리밋으로 DB 보호. 부분 복구 후 캐시 재워밍.</li>
+      <li><strong>Kafka 지연</strong> → 사용자에게 "잠시 후 다시" 중간 상태 노출; 게시 직후엔 read-your-writes 낙관적 삽입.</li>
       <li><strong>DB primary 장애</strong> → 복제본 자동 페일오버, 다중 AZ.</li>
     </ul>
   </div>
   <div class="callout staff">
-    <div class="label">Staff signal - 정합성 경계</div>
-    <p>정합성의 경계는 <span class="inline-mono">tweet-published</span> 이벤트다. 그 이전(트윗 저장)은 강하게 동기, 이후(fan-out)는 최종적. <strong>이 경계를 어디에 긋느냐</strong>가 삭제 전파, 재시도 멱등성, read-your-writes 비용을 모두 결정한다 - 경계 자체가 설계 결정이라는 점을 짚는다.</p>
+    <div class="label">Staff 시그널 — 정합성 경계</div>
+    <p>정합성의 경계는 <span class="inline-mono">글-게시됨</span> 이벤트입니다. 그 이전(글 저장)은 강하게 동기, 이후(퍼뜨리기)는 결과적. <strong>이 경계를 어디에 긋느냐</strong>가 삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정합니다 — 경계 자체가 설계 결정이라는 점을 짚습니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p><span class="inline-mono">tweet-published</span> 이벤트가 정합성 경계인 이유: 그 이전(Tweet Service가 DB에 저장)은 트랜잭션으로 강하게 보장되고, 그 이후(fan-out worker가 타임라인에 push)는 비동기·최종적이다. 이 경계 위치가 <strong>삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정</strong>한다.</p><p>예: 삭제는 tombstone 이벤트로 fan-out worker가 각 타임라인에서 제거해야 하는데, 이는 "삭제도 최종적"임을 의미한다 — 짧은 시간 창에선 이미 삭제된 트윗이 타임라인에 남을 수 있다. 그래서 읽기 시 필터링(tombstone 체크)을 안전망으로 둔다. 경계를 다른 곳(예: fan-out을 동기로)으로 옮기면 정합성은 강해지지만 응답 지연이 커진다 — <strong>경계 자체가 튜닝 가능한 설계 결정</strong>임을 아는 것이 Staff다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><span class="inline-mono">글-게시됨</span> 이벤트가 정합성 경계인 이유: 그 이전(글 서비스가 DB에 저장)은 트랜잭션으로 강하게 보장되고, 그 이후(퍼뜨리기 워커가 피드에 push)는 비동기·최종적이다. 이 경계 위치가 <strong>삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정</strong>한다.</p><p>예: 삭제는 tombstone 이벤트로 워커가 각 피드에서 제거해야 하는데, 이는 "삭제도 최종적"임을 의미한다 — 짧은 시간 창에선 이미 삭제된 글이 피드에 남을 수 있다. 그래서 읽을 때 필터링(tombstone 체크)을 안전망으로 둔다. 경계를 다른 곳(예: fan-out을 동기로)으로 옮기면 정합성은 강해지지만 응답 지연이 커진다 — <strong>경계 자체가 튜닝 가능한 설계 결정</strong>임을 아는 것이 Staff다.</p></div>
   </details>
 </section>
 
 <section id="s10">
   <h2><span class="num">10</span>트레이드오프 분석</h2>
   <ul>
-    <li><strong>정합성 vs 가용성</strong>: 타임라인은 결과적 정합성으로 가용성/속도를 취한다. 단 내 트윗 read-your-writes는 강하게 유지.</li>
-    <li><strong>지연 vs 신뢰성</strong>: 읽기를 O(1)로(쓰기 비용을 fan-out로 감수) - 읽기가 100배 많으므로 타당. 게시는 비동기로.</li>
-    <li><strong>비용 vs 성능</strong>: 모든 사용자 타임라인을 사전 계산하면 비활성 사용자에 낭비. 임계/지연 계산으로 비용 절감.</li>
-    <li><strong>범용 트레이드오프</strong>: fan-out-on-write의 "읽기 O(1) ↔ 셀럽 폭발"과 fan-out-on-read의 "쓰기 O(1) ↔ 읽기 폭발"을 <strong>사용자 유형별로 분기</strong>해 둘 다 회피 - 이 분기 자체가 설계의 핵심 기여다.</li>
+    <li><strong>정합성 vs 가용성</strong>: 피드는 결과적으로 가용성/속도를 취한다. 단 내 글 read-your-writes는 강하게 유지.</li>
+    <li><strong>지연 vs 신뢰</strong>: 읽기를 O(1)로(쓰기 비용을 미리 만들기로 감수) — 읽기가 100배 많으므로 타당.</li>
+    <li><strong>비용 vs 성능</strong>: 모든 사용자 피드를 미리 만들면 비활성 사용자에 낭비. 임계/지연 계산으로 비용 절감.</li>
+    <li><strong>범용 트레이드오프</strong>: "올릴 때 만들기(읽기 O(1) ↔ 셀럽 폭발)"와 "읽을 때 만들기(쓰기 O(1) ↔ 읽기 폭발)"를 <strong>사용자 유형별로 분기</strong>해 둘 다 회피 — 이 분기 자체가 설계의 핵심 기여입니다.</li>
   </ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>이 시스템의 핵심 설계 기여는 "push vs pull 중 하나를 고르라"는 이분법을 <strong>거부하고 사용자 유형별로 분기</strong>한 것이다. 일반 사용자는 push, 셀럽은 pull(읽기 시 병합). 이 분기 덕에 push의 장점(읽기 O(1))과 pull의 장점(셀럽 쓰기 폭발 회피)을 동시에 취한다.</p><p>이 패턴은 다른 시스템에도 적용된다 — "작업 비용이 항목별로 극단적으로 다를 때, 단일 전략 대신 항목 분류별로 다른 전략을 적용하라"는 일반화된 설계 원칙이다. Staff는 이 사례에서 <strong>원칙을 추출해 다른 문제에 적용</strong>할 수 있음을 보여준다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>이 시스템의 핵심 설계 기여는 "push vs pull 중 하나를 고르라"는 이분법을 <strong>거부하고 사용자 유형별로 분기</strong>한 것이다. 일반 사용자는 push, 셀럽은 pull(읽을 때 합치기). 이 분기 덕에 push의 장점(읽기 O(1))과 pull의 장점(셀럽 쓰기 폭발 회피)을 동시에 취한다.</p><p>이 패턴은 다른 시스템에도 적용된다 — "작업 비용이 항목별로 극단적으로 다를 때, 단일 전략 대신 항목 분류별로 다른 전략을 적용하라"는 일반화된 설계 원칙이다. Staff는 이 사례에서 <strong>원칙을 추출해 다른 문제에 적용</strong>할 수 있음을 보여준다.</p></div>
   </details>
 </section>
 
 <section id="s11">
   <h2><span class="num">11</span>관측가능성 &amp; 운영</h2>
   <ul>
-    <li><strong>지표</strong>: 피드 읽기 p50/p95/p99, fan-out worker 지연·lag, 타임라인 Redis 히트율·메모리, 셀럽 병합 지연, 게시→첫 팔로워 도달 시간.</li>
-    <li><strong>분산 트레이싱</strong>: 한 트윗이 tweet-published → fan-out → 타임라인까지 흐르는 경로 추적.</li>
+    <li><strong>지표</strong>: 피드 읽기 p50/p95/p99, 퍼뜨리기 워커 지연·lag, 피드 Redis 히트율·메모리, 셀럽 합치기 지연, <strong>게시→첫 팔로워 도달 시간</strong>.</li>
+    <li><strong>분산 트레이싱</strong>: 한 글이 게시됨 → 퍼뜨리기 → 피드까지 흐르는 경로 추적.</li>
     <li><strong>알림/런북</strong>: lag 임계, hot-key 경보, Redis 페일오버 런북.</li>
-    <li><strong>기능 플래그</strong>: 셀럽 임계값·fan-out 동기/비동기 전환을 플래그로 두어 장애 시 우아한 강등.</li>
+    <li><strong>기능 플래그</strong>: 셀럽 임계값·미리 만들기 동기/비동기 전환을 플래그로 두어 장애 시 우아한 강등.</li>
   </ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>가장 의미 있는 단일 메트릭은 <strong>"게시 → 첫 팔로워 도달 시간"</strong>이다 — 결과적 정합성의 실제 지연을 사용자 관점에서 측정한다. 이 값이 몇 초를 넘으면 "방금 올린 트윗이 안 보인다"는 불만으로 이어진다.</p><p>fan-out worker lag는 "밀려있는 작업량"을, Redis 히트율은 "사전 계산이 읽기를 흡수하고 있는가"를 각각 알려준다. <strong>기능 플래그</strong>로 셀럽 임계값이나 fan-out 동기/비동기를 런타임에 전환할 수 있게 두면, 장애 중 한 파라미터만 바꿔 시스템을 강등시킬 수 있다 — 코드 배포 없이. 이것이 "관측만"이 아니라 "운영"이 되는 지점이다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>가장 의미 있는 단일 메트릭은 <strong>"게시 → 첫 팔로워 도달 시간"</strong>이다 — 결과적 정합의 실제 지연을 사용자 관점에서 측정한다. 이 값이 몇 초를 넘으면 "방금 올린 글이 안 보인다"는 불만으로 이어진다.</p><p>fan-out 워커 lag는 "밀려있는 작업량"을, Redis 히트율은 "미리 계산이 읽기를 흡수하고 있는가"를 각각 알려준다. <strong>기능 플래그</strong>로 셀럽 임계값이나 미리 만들기 동기/비동기를 런타임에 전환할 수 있게 두면, 장애 중 한 파라미터만 바꿔 시스템을 강등시킬 수 있다 — 코드 배포 없이. 이것이 "관측만"이 아니라 "운영"이 되는 지점이다.</p></div>
   </details>
 </section>
 
 <section id="s12">
   <h2><span class="num">12</span>요약</h2>
-  <p>핵심은 읽기 비중(100:1)을 잡아내어 <strong>타임라인을 사전 계산</strong>으로 읽기를 O(1)로 만들되, 그 비용이 셀럽 한 명에게서 폭발하는 것을 <strong>사용자 유형별 fan-out 분기</strong>로 회피하는 것이다. 정합성 경계는 <span class="inline-mono">tweet-published</span> 이벤트 - 이전은 강하게, 이후는 최종적. 한 설계 결정이 다른 시스템 요구사항을 어떻게 강제하는지(read-your-writes, 삭제 전파)까지 드러내는 것이 Staff 수준의 답변이다.</p>
+  <p>핵심은 읽기 비중(100:1)을 잡아내어 <strong>피드를 미리 만들어</strong> 읽기를 O(1)로 만들되, 그 비용이 셀럽 한 명에게서 폭발하는 것을 <strong>사용자 유형별 분기</strong>로 회피하는 것입니다. 정합성 경계는 <span class="inline-mono">글-게시됨</span> 이벤트 — 이전은 강하게, 이후는 최종적.</p>
   <div class="callout tradeoff">
     <div class="label">한 줄 정합성 입장</div>
-    <p>타임라인 = 결과적 + 읽기 O(1); 내 트윗 = read-your-writes; 트윗 저장/팔로우 = ACID 강정합. 세 도메인에 각각 다른 정합성을 적용하고 그 이유를 말한다.</p>
+    <p>피드 = 결과적 + 읽기 O(1); 내 글 = read-your-writes; 글 저장/팔로우 = ACID 강정합. 세 도메인에 각각 다른 정합성을 적용하고 그 이유를 말합니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>요약의 핵심은 단일 결정(<strong>타임라인 사전 계산</strong>)이 시스템 전체를 지배한다는 것이다 — 읽기:쓰기 100:1이라는 비대칭을 잡아내어 읽기를 O(1)로 만들되, 그 비용이 셀럽에게서 폭발하는 것을 사용자 유형별 분기로 회피한다.</p><p>정합성 경계(<span class="inline-mono">tweet-published</span>)를 어디에 긋느냐가 삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정한다는 점까지 말하면 Staff다 — 한 결정이 다른 시스템 요구사항을 강제하는 연쇄를 보여주는 것이 이 문제의 진정한 답이다. "분기를 했다"에서 끝나지 않고 "그 분기가 강제하는 비용이 어디서 나타나는지"까지 답해야 한다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>요약의 핵심은 단일 결정(<strong>피드 미리 만들기</strong>)이 시스템 전체를 지배한다는 것이다 — 읽기:쓰기 100:1이라는 비대칭을 잡아내어 읽기를 O(1)로 만들되, 그 비용이 셀럽에게서 폭발하는 것을 사용자 유형별 분기로 회피한다.</p><p>정합성 경계(<span class="inline-mono">글-게시됨</span>)를 어디에 긋느냐가 삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정한다는 점까지 말하면 Staff다 — 한 결정이 다른 시스템 요구사항을 강제하는 연쇄를 보여주는 것이 이 문제의 진정한 답이다. "분기를 했다"에서 끝나지 않고 "그 분기가 강제하는 비용이 어디서 나타나는지"까지 답해야 한다.</p></div>
   </details>
 </section>
 
 <footer class="foot">
   superinterview / SYSTEM-DESIGN model answer - Twitter news feed. Staff/Principal bar.
-  ground-truth reference; revealed at Grade only. 비교용이지 유일한 정답이 아니다.
+  본문은 누구나 이해하기 쉽게, '전문가 심화 분석'은 엔지니어 심화용. 비교용이지 유일한 정답이 아니다.
 </footer>
 </main>
 </div>
