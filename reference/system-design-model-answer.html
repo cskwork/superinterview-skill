@@ -3,22 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <title>System Design Model Answer - Food Ordering &amp; Delivery</title>
+<script>(function(){try{var t=localStorage.getItem('si-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{
+    --bg:#ffffff; --surface:#f6f8fa; --surface-2:#eaeef2; --border:#d0d7de;
+    --text:#1f2328; --text-dim:#59636e; --text-mute:#8c959f;
+    --accent:#0969da; --accent-soft:#ddf4ff; --accent-border:rgba(9,105,218,.4);
+    --green:#1a7f37; --green-soft:#dafbe1; --green-border:rgba(26,127,55,.4);
+    --amber:#9a6700; --amber-soft:#fff8c5; --amber-border:rgba(154,103,0,.4);
+    --red:#cf222e; --red-soft:#ffebe9; --red-border:rgba(207,34,46,.4);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    color-scheme:light;
+  }
+  :root[data-theme="dark"]{
     --bg:#0f1419; --surface:#161b22; --surface-2:#1c232c; --border:#2a3340;
     --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#6b7785;
-    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14);
-    --green:#3fb950; --green-soft:rgba(63,185,80,.13);
-    --amber:#d29922; --amber-soft:rgba(210,153,34,.13);
-    --red:#f85149; --red-soft:rgba(248,81,73,.12);
-    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14); --accent-border:rgba(59,130,246,.3);
+    --green:#3fb950; --green-soft:rgba(63,185,80,.13); --green-border:rgba(63,185,80,.3);
+    --amber:#d29922; --amber-soft:rgba(210,153,34,.13); --amber-border:rgba(210,153,34,.3);
+    --red:#f85149; --red-soft:rgba(248,81,73,.12); --red-border:rgba(248,81,73,.25);
+    color-scheme:dark;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',Roboto,sans-serif;
-    line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased;}
+    line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased;
+    transition:background .2s ease,color .2s ease;}
   .layout{display:flex;max-width:1180px;margin:0 auto}
   nav.toc{position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;flex:0 0 240px;
     padding:32px 20px;border-right:1px solid var(--border);font-size:13.5px;}
@@ -53,10 +66,10 @@
   .inline-mono{font-family:var(--mono);font-size:13px;color:var(--text)}
   .callout{border-radius:10px;padding:18px 20px;margin:18px 0;border:1px solid var(--border);background:var(--surface)}
   .callout .label{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;font-weight:600}
-  .callout.capacity{border-color:rgba(59,130,246,.3);background:var(--accent-soft)}.callout.capacity .label{color:var(--accent)}
-  .callout.tradeoff{border-color:rgba(210,153,34,.3);background:var(--amber-soft)}.callout.tradeoff .label{color:var(--amber)}
-  .callout.staff{border-color:rgba(63,185,80,.3);background:var(--green-soft)}.callout.staff .label{color:var(--green)}
-  .callout.fail{border-color:rgba(248,81,73,.25);background:var(--red-soft)}.callout.fail .label{color:var(--red)}
+  .callout.capacity{border-color:var(--accent-border);background:var(--accent-soft)}.callout.capacity .label{color:var(--accent)}
+  .callout.tradeoff{border-color:var(--amber-border);background:var(--amber-soft)}.callout.tradeoff .label{color:var(--amber)}
+  .callout.staff{border-color:var(--green-border);background:var(--green-soft)}.callout.staff .label{color:var(--green)}
+  .callout.fail{border-color:var(--red-border);background:var(--red-soft)}.callout.fail .label{color:var(--red)}
   .callout p:last-child,.callout li:last-child{margin-bottom:0}.callout ul{margin-bottom:0}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
   .metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
@@ -73,11 +86,36 @@
   .schema{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
   .table-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
   .table-card .tname{font-family:var(--mono);font-size:13px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--accent);font-weight:600}
-  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid rgba(42,51,64,.5)}
+  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid var(--surface-2)}
   .table-card .field:last-child{border-bottom:none}
   .table-card .field .pk{color:var(--green)}.table-card .field .idx{color:var(--amber)}
   .flow{font-family:var(--mono);font-size:12.5px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin:18px 0;color:var(--text-dim);line-height:2;overflow-x:auto}
   .flow .step{color:var(--accent)}.flow .fail{color:var(--red)}
+  details.deep{margin-top:22px;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}
+  details.deep > summary{list-style:none;cursor:pointer;padding:12px 18px;font-family:var(--mono);
+    font-size:12.5px;letter-spacing:.04em;color:var(--text-dim);display:flex;align-items:center;
+    justify-content:space-between;user-select:none;transition:color .15s,background .15s}
+  details.deep > summary::-webkit-details-marker{display:none}
+  details.deep > summary::marker{content:''}
+  details.deep > summary:hover{color:var(--text);background:var(--surface-2)}
+  details.deep[open] > summary{color:var(--accent);border-bottom:1px solid var(--border);background:var(--surface-2)}
+  details.deep .chev{transition:transform .2s ease;color:var(--text-mute);font-family:var(--mono)}
+  details.deep[open] .chev{transform:rotate(90deg);color:var(--accent)}
+  .deep-body{padding:16px 20px}
+  .deep-body p{color:var(--text-dim)}
+  .deep-body p:last-child{margin-bottom:0}
+  .deep-body ul{margin:8px 0 0}
+  .theme-toggle{position:fixed;right:22px;bottom:22px;z-index:50;display:inline-flex;
+    align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
+    font-weight:600;padding:9px 14px;border-radius:999px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text-dim);box-shadow:0 4px 14px rgba(0,0,0,.10);
+    transition:color .15s,border-color .15s,transform .12s}
+  .theme-toggle:hover{color:var(--text);border-color:var(--accent);transform:translateY(-1px)}
+  .theme-toggle:active{transform:translateY(0)}
+  .theme-toggle .icon{width:16px;height:16px;display:none}
+  .theme-toggle .icon svg{width:16px;height:16px;display:block}
+  :root:not([data-theme="dark"]) .theme-toggle .icon-moon{display:inline-flex}
+  :root[data-theme="dark"] .theme-toggle .icon-sun{display:inline-flex}
   footer.foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-mute)}
   @media (max-width:920px){.layout{flex-direction:column}nav.toc{position:relative;height:auto;flex:none;border-right:none;border-bottom:1px solid var(--border);padding:20px}main{padding:32px 22px 80px}}
 </style>
@@ -143,6 +181,9 @@
       <li>낮은 수치를 주더라도 10배 성장을 전제로 설계</li>
     </ul>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>면접관이 "탐색·메뉴·주문·결제·추적"만 나열했을 때, 설계자가 가장 먼저 분리해야 할 것은 <strong>돈이 걸린 경로(결제·주문상태)</strong>와 <strong>정보 조회 경로(탐색·메뉴·추적)</strong>다. 전자는 정확성·감사 가능성이 최우선이라 ACID + 멱등 + 조정 잡이 강제되고, 후자는 가용성·지연이 우선이라 캐시·결과적 정합성이 허용된다. 이 분할을 먼저 세우면 저장소 선택(관계형 vs 캐시/검색), 서비스 경계, 장애 시 강등 순서가 모두 자연히 정해진다.</p><p>범위 밖(리뷰·멤버십·다중 배달 경로 batching)을 <strong>명시적으로</strong> 빼는 것도 Staff 신호다 — "빼놓은 것"을 아는 것이 설계의 한 부분이다. 각 비기능 요구사항은 측정 가능해야 한다: "고가용성" = 목표 99.95%, "저지연" = 탐색 p99 &lt; 200ms처럼 숫자로 환원해야 나중에 관측 지표와 연결된다.</p></div>
+  </details>
 </section>
 
 <section id="s2">
@@ -154,6 +195,9 @@
     <div class="metric"><div class="v">10x</div><div class="k">성장 여유 설계</div></div>
   </div>
   <p>탐색이 압도적으로 읽기 비중이 높고, 주문/결제는 쓰기이면서 동시에 강정합성이 필요하다 → 읽기 경로와 트랜잭션 경로를 분리해 각각 다른 스케일링 패턴을 갖게 한다.</p>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>DAU 1M, 피크 주문 5k/min이면 연간 약 1억 건. 주문 행 ~500B 기준 연 ~50GB로 단일 DB로도 당분간 가능하지만, 10x 성장을 전제하면 <span class="inline-mono">user_id</span> 샤딩을 1일부터 염두에 둬야 한다 — 나중에 샤딩 마이그레이션은 매우 비싸다.</p><p>진짜 조심할 부하는 주문이 아니라 <strong>라이더 GPS</strong>다. 동시 5만 라이더가 초당 1회 보고하면 50k 쓰기/s이고, 이것을 ACID DB에 그대로 쓰면 행 경합·복제 지연이 폭발한다. 그래서 GPS는 Redis GEO(TTL 수십 초)로 '최근 위치'만 두고, 픽업/도착 같은 마일스톤만 DB에 영속한다. <strong>"무엇을 영속할 것인가"를 분리</strong>하는 것이 용량 설계의 핵심이다.</p></div>
+  </details>
 </section>
 
 <section id="s3">
@@ -165,9 +209,7 @@
       <span class="node">Restaurant App</span><span class="arrow">/</span>
       <span class="node">Rider App</span>
     </div>
-    <div class="row" style="margin-top:10px">
-      <span class="arrow">↓</span>
-    </div>
+    <div class="row" style="margin-top:10px"><span class="arrow">↓</span></div>
     <div class="row">
       <span class="node">CDN / Load Balancer</span><span class="arrow">→</span>
       <span class="node accent">API Gateway</span>
@@ -194,6 +236,9 @@
     <li><strong>트랜잭션 서비스</strong>(주문/결제): ACID가 필요하므로 MySQL/PostgreSQL. 고스케일에선 user_id/region/order_id로 샤딩</li>
     <li><strong>비동기 워크플로</strong>: Kafka로 이벤트 분리 → 결합도 감소, 스파이크 회복력 향상</li>
   </ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>왜 서비스를 이렇게 나누는가 — 각 서비스의 <strong>스케일링 패턴</strong>이 다르기 때문이다. 탐색/메뉴는 읽기 QPS가 주문의 수십~수백 배라 캐시 복제로 수평 확장이 쉽고, 주문/결제는 쓰기 경합과 트랜잭션이 있어 무작정 복제만 늘릴 수 없다. 이 둘을 같은 DB/서비스에 묶으면 읽기 스파이크가 결제 지연으로 번진다.</p><p>API 게이트웨이는 인증·레이트리밋·라우팅의 단일 진입점이면서 동시에 <strong>장애 전파 차단벽</strong>이다 — 하위 서비스 장애 시 게이트웨이에서 타임아웃/폴백 응답을 내어 호출자 폭주(cascading failure)를 막는다. 서비스마다 별도 DB(또는 최소 별도 스키마)를 두는 이유는 장애 격리와 독자적 데이터 모델링 때문이다.</p></div>
+  </details>
 </section>
 
 <section id="s4">
@@ -208,6 +253,9 @@
     <li><code>Dispatch Service</code>가 위치, 라이더 가용성, 거리, 조리 시간, 배달 SLA 기반 라이더 매칭. 배정 시 <code>RIDER_ASSIGNED</code>.</li>
     <li><code>Delivery Tracking</code>이 라이더 앱의 GPS 갱신 수신. 고객에게 WebSocket/SSE/푸시로 준실시간 갱신.</li>
   </ol>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>동기 경로를 <strong>"결제 승인 응답"</strong>까지로 긋는 선택은 의도적이다 — 그 시점까지는 고객이 화면을 보며 기다리고 있고, 실패하면 즉시 알려야 한다(결제 실패 = 주문 실패). 그 이후(수락·배정·추적)는 초~분 단위 비동기이므로 Kafka로 넘긴다.</p><p>이 분리는 역으로 <strong>"결제는 됐는데 주문 상태 갱신에 실패하면?"</strong>이라는 정합성 구멍을 만든다. 해결은 Payment Service가 PG 승인을 자체 DB에 먼저 영속(=진실)하고 <code>PaymentSucceeded</code>를 발행하는 것 — Order Service가 소비에 실패해도 재시도로, 최종적으로 PG 웹훅과 야간 조정 잡이 안전망이 된다. <strong>"어디서 동기를 끊는가"가 정합성·복구 비용을 결정한다</strong>는 점이 이 플로우의 핵심 설계 결정이다.</p></div>
+  </details>
 </section>
 
 <section id="s5">
@@ -230,7 +278,7 @@
       <div class="field">order_id</div>
       <div class="field">menu_item_id</div>
       <div class="field">quantity</div>
-      <div class="field">unit_price</div>
+      <div class="field">unit_price <span class="idx">(snapshot)</span></div>
       <div class="field">options</div>
     </div>
     <div class="table-card">
@@ -241,7 +289,7 @@
       <div class="field">amount</div>
       <div class="field">payment_status</div>
       <div class="field">external_payment_reference</div>
-      <div class="field">idempotency_key <span class="idx">idx</span></div>
+      <div class="field">idempotency_key <span class="idx">unique</span></div>
     </div>
     <div class="table-card">
       <div class="tname">delivery_tasks</div>
@@ -259,6 +307,9 @@
     <span class="step">CREATED</span> → <span class="step">PENDING_PAYMENT</span> → <span class="step">PAID</span> → <span class="step">RESTAURANT_ACCEPTED</span> → <span class="step">RIDER_ASSIGNED</span> → <span class="step">PICKED_UP</span> → <span class="step">DELIVERED</span><br>
     <span class="fail">PAYMENT_FAILED · RESTAURANT_REJECTED · CANCELLED · REFUNDED · DELIVERY_FAILED</span>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><span class="inline-mono">order_items.unit_price</span>는 <strong>주문 시점 가격 스냅샷</strong>이다. 메뉴 가격이 나중에 바뀌어도 이 주문의 금액은 불변이어야 하고, 환불 분쟁 시 증거가 된다 — 외부 참조(id)만 저장하면 결제 시점과 환불 시점 금액이 어긋난다.</p><p><span class="inline-mono">payments.idempotency_key</span>에 <strong>unique 제약</strong>을 거는 것이 이중결제 방지의 물리적 안전망이다. 애플리케이션에서 "이미 처리됐나?" 검사만으로는 두 요청이 동시에 검사를 통과하는 race를 막지 못한다 — DB 제약은 그 경합마저 거부한다. <span class="inline-mono">order_id</span>에 타임스탬프+샤드를 인코딩(Snowflake류)하면 정렬 키, 파티션 키, 시간 기반 보관/삭제가 한 필드로 해결된다.</p></div>
+  </details>
 </section>
 
 <section id="s6">
@@ -273,6 +324,9 @@
     <div class="label">주의</div>
     <p>Redis를 주문/결제의 <strong>진실 공급원(source of truth)으로는 쓰지 않는다</strong>. 주문·결제는 내구성 있는 관계형 DB에 저장한다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>캐시 전략의 함정은 <strong>"언제 무효화할 것인가"</strong>다. 식당 영업/품절은 1-5분 TTL로 충분히 fresh하지만, 가격 변경은 위험하다 — 그래서 주문 검증 시 캐시를 믿되 최종 가격은 DB 기준으로 재확인하는 "캐시로 보여주되 진실로 검증" 패턴이 안전하다.</p><p><strong>캐시 스탬피드</strong>(인기 키 만료 순간 다수가 동시에 DB로 몰리는 현상)는 stale-while-revalidate나 per-key 락(messagebus/Redis SETNX)으로 막는다. 핵심 원칙 한 줄: Redis는 '빠른 읽기' 계층이지 '진실'이 아니다 — 결제·주문 상태는 절대 Redis만 믿지 않는다.</p></div>
+  </details>
 </section>
 
 <section id="s7">
@@ -287,6 +341,9 @@
     <div class="label" style="color:var(--text-dim)">핵심 인덱스</div>
     <p><code>orders(user_id, created_at)</code> · <code>orders(restaurant_id, created_at)</code> · <code>orders(status, updated_at)</code> · <code>delivery_tasks(rider_id, task_status)</code> · <code>payments(order_id)</code> · <code>payments(idempotency_key)</code></p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>정합성을 "도메인별로" 나눈다는 것의 실질적 의미: 결제·주문상태·환불은 강정합(ACID), 검색·랭킹·추적위치는 결과적. <strong>경계는 <span class="inline-mono">PaymentSucceeded</span> 이벤트</strong> — 이전은 동기 트랜잭션, 이후는 비동기 결과적. 이 경계를 어디 긋느냐가 환불 흐름·조정 주기·read-your-writes 비용을 모두 결정한다.</p><p>예: 고객이 방금 결제한 직후 "내 주문"을 열면 읽기 복제본 lag 때문에 안 보일 수 있다. read-your-writes를 보장하려면 결제 응답에 order_id+버전을 실어 클라이언트가 낙관적으로 표시하거나, '내 주문' 쿼리는 짧은 시간 창 동안 primary에서 읽는다 — 모두 경계 위치에서 파생되는 비용이다.</p></div>
+  </details>
 </section>
 
 <section id="s8">
@@ -298,6 +355,9 @@
     <li><strong>단순 알고리즘</strong>: 반경 내 가용 라이더 탐색 → 예상 픽업 시간 순 정렬 → 최적 라이더 배정 → 오퍼 전송. 타임아웃 내 미수락 시 다음 라이더로 재시도.</li>
     <li><strong>대규모</strong>: 배칭, 예상 조리 시간 예측, 라이더 공정성, 배달 비용, 지역별 수요-공급 불균형까지 고려.</li>
   </ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>배차 품질(ETA·비용·공정성)과 시스템 처리량은 자주 충돌한다. 단일 "최적 라이더"를 계산해 push하면 품질은 좋지만 핫 경합·단일 병목이 생기고, 반경 브로드캐스트 pull은 처리량은 좋지만 차선 라이더가 배정될 수 있다. 실제 플랫폼은 <strong>평시엔 push(1순위 오퍼), 폭주 시엔 pull(브로드캐스트)로 전환</strong>해 병목을 분산한다.</p><p>이 "전환 임계값"을 <strong>관측하며 조정하는 설정값</strong>이라는 점까지 말하면 Staff다 — 정답이 아니라 튜닝 가능한 파라미터임을 아는 것. GPS 쓰기 부하는 위치 전송 주기를 라이더 속도에 따라 적응시켜(정지 시 드물게, 이동 시 빽빽히) 추가로 통제한다.</p></div>
+  </details>
 </section>
 
 <section id="s9">
@@ -314,6 +374,9 @@
     <div class="label">핵심 원칙</div>
     <p>핵심 주문·결제는 안정적으로 유지하고, 비핵심 기능은 강등 가능해야 한다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>스파이크 대응의 원칙은 <strong>"코어를 지키고 비핵심을 희생한다"</strong>다. 코어 = 주문 생성·결제(돈 흐름). 비핵심 = 개인화 추천·빈도 높은 추적 갱신·복잡한 랭킹. 부하 시 추적 갱신을 1s→5s로 줄이면 GPS 쓰기·WebSocket 연결 수가 절반 아래로 떨어져 백엔드가 숨을 쉰다 — 고객 경험엔 미세한 영향, 시스템 생존엔 큰 영향.</p><p>이 <strong>"강등 매트릭스"</strong>를 기능 플래그로 미리 준비해 두면, 장애 중 급히 코딩하지 않고 플래그 한 칸만 내린다. "코어를 지킨다"는 말은 곧 "코어 경로의 의존성(Kafka/DB/PG)을 비코어와 분리해, 비코어 장애가 코어로 번지지 않게 한다"는 뜻이기도 하다.</p></div>
+  </details>
 </section>
 
 <section id="s10">
@@ -329,6 +392,9 @@
       <li><strong>DB primary 장애</strong> → 복제본 + 자동 페일오버. 다중 AZ 배포 필수.</li>
     </ul>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>"결제 성공-주문 갱신 실패" 시나리오가 가장 자주 얇게 다뤄진다. 올바른 흐름: Payment Service가 PG 승인을 받는 즉시 <strong>자체 DB에 영속(=진실)</strong>하고 <code>PaymentSucceeded</code>를 발행한다. Order Service가 이벤트 소비에 실패해도 재시도로, 또는 <strong>PG 웹훅(권위 소스)</strong>을 Order가 직접 구독해 복구한다. 야간 조정 잡은 '마지막 안전망'이지 1차 방어가 아니다.</p><p><strong>멱등키가 없으면 재시도가 이중 결제·이중 주문이 된다</strong> — 모든 외부 효과(결제·알림·배정)는 멱등이어야 한다. Kafka 장애 시 고객에게 "대기 중" 중간 상태를 보여주는 것은 사용자 신뢰를 지키는 데 실제로 중요하다 — 침묵보다 명확한 '진행 중'이 낫다.</p></div>
+  </details>
 </section>
 
 <section id="s11">
@@ -339,6 +405,9 @@
     <li><strong>비용 vs 성능</strong>: 핫/빈번 데이터만 캐시. 읽기 비중과 쓰기 비중 서비스를 분리해 독립 스케일.</li>
     <li><strong>모놀리스 vs 마이크로서비스</strong>: 작으면 너무 많은 서비스로 시작하지 않는다. 단 Coupang 규모면 Order/Payment/Dispatch/Restaurant/Search/Notification 분리가 합리 (서로 다른 스케일링 패턴·장애 경계).</li>
   </ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>모놀리스 vs 마이크로서비스의 진짜 트레이드오프는 <strong>"팀 경계·독립 배포·장애 격리" vs "분산 시스템 복잡도(트레이싱·eventual consistency·네트워크 장애)"</strong>다. 작은 팀·초기엔 잘 모듈화된 모놀리스가 이긴다 — 분산 비용이 분할 이득보다 크기 때문이다. 쿠팡급에서는 Order/Payment/Dispatch가 각기 다른 스케일 패턴(결제=저부하 고정합, 탐색=고부하 읽기)과 다른 장애 모드를 가져 분리가 합당하다.</p><p>"왜 지금 이 크기에서 나누는가"를 근거로 말하는 것이 Staff 포인트다 — 조직 규모(콘웨이 법칙)와 트래픽 규모가 둘 다 분리를 정당화할 때 나눈다.</p></div>
+  </details>
 </section>
 
 <section id="s12">
@@ -357,6 +426,9 @@
     <li><strong>분산 트레이싱</strong>: 한 주문이 게이트웨이 → Order → Payment → Kafka → Dispatch → Notification을 가로지르는 추적.</li>
     <li><strong>인시던트 대응</strong>: 대시보드, 알림, 런북, 기능 플래그 (장애 중 비핵심 기능 빠른 비활성).</li>
   </ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>가장 중요한 관측 지표는 <strong>비즈니스 SLO</strong>다 — 주문 성공률, 결제 성공률, 배달 SLA 준수율. 이것들이 빨갛게 변하면 p99 지연이 정상이어도 사고다. p99는 기술 건전성 지표일 뿐, 사용자가 겪는 현실은 비즈니스 SLO다.</p><p>분산 트레이싱은 한 주문이 7개 서비스를 지나는 경로를 <span class="inline-mono">trace_id</span>로 엮어 "5번째 홉에서 3초 걸렸다"를 찾게 해준다. <strong>조정 대시보드(PG vs 내부 결제 불일치 건수)는 0에 가까워야 정상</strong> — 이것이 0이 아니면 정합성 구멍이 실제로 발생하고 있다는 신호이므로, 이 숫자를 '제1의 정합성 헬스 지표'로 다룬다.</p></div>
+  </details>
 </section>
 
 <section id="s13">
@@ -366,6 +438,9 @@
     <div class="label">핵심 트레이드오프</div>
     <p>주문/결제 워크플로의 정확성·신뢰성을 최우선하고, 검색/추적/추천/알림은 결과적 정합성을 감내한다. 이로써 플랫폼이 스케일하면서도 사용자 신뢰를 유지한다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>한 줄로: <strong>읽기 비중 경로는 캐시·검색으로 가용성·속도를, 돈·상태 경로는 ACID·멱등·조정으로 정확성을</strong>. Kafka가 그 둘을 잇고 스파이크를 흡수한다. 핵심은 정확성(결제/주문)과 가용성/속도(탐색/추적)를 도메인별로 분리했다는 점이다 — 이 분할 덕에 대규모에서도 신뢰를 유지한다.</p><p>이 분할이 강제하는 제약들(read-your-writes 비용, 조정 잡, 강중 매트릭스)을 명시적으로 받아들이는 것이 Senior 설계자의 자세다. "선택을 했다"에서 끝나지 않고 "그 선택이 다른 어디서 비용을 만드는지"까지 말하는 것이 Staff다.</p></div>
+  </details>
 </section>
 
 <footer class="foot">
@@ -374,11 +449,29 @@
 </footer>
 </main>
 </div>
+<button class="theme-toggle" type="button" aria-label="Toggle color theme" title="색상 테마 전환">
+  <span class="icon icon-moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+  <span class="icon icon-sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+  <span class="label">Dark</span>
+</button>
 <script>
-  const links=[...document.querySelectorAll('nav.toc a')];
-  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
-  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const m=links.find(l=>l.getAttribute('href')==='#'+e.target.id);if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
-  secs.forEach(s=>s&&obs.observe(s));
+  (function(){
+    var root=document.documentElement,KEY='si-theme';
+    var btn=document.querySelector('.theme-toggle');
+    var label=btn&&btn.querySelector('.label');
+    function sync(){var dark=root.getAttribute('data-theme')==='dark';if(label)label.textContent=dark?'Light':'Dark';}
+    if(btn)btn.addEventListener('click',function(){
+      var dark=root.getAttribute('data-theme')==='dark';
+      if(dark){root.removeAttribute('data-theme');try{localStorage.setItem(KEY,'light')}catch(e){}}
+      else{root.setAttribute('data-theme','dark');try{localStorage.setItem(KEY,'dark')}catch(e){}}
+      sync();
+    });
+    sync();
+  })();
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))});
+  var obs=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(l){l.classList.remove('active')});var m=links.find(function(l){return l.getAttribute('href')==='#'+e.target.id});if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(function(s){if(s)obs.observe(s)});
 </script>
 </body>
 </html>
