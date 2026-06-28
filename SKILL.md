@@ -53,7 +53,7 @@ or expose contact details from the private file unless the user explicitly asks.
 |---|---|---|
 | design X / system design / design a platform / scalable / 설계 | SYSTEM-DESIGN | mock loop + `reference/system-design-rubric.md`; stored food-delivery ground truth = `reference/system-design-model-answer.html`; novel prompts generate fresh HTML at Grade from `templates/model-answer.html` |
 | behavioral / tell me about a time / STAR / conflict / leadership | BEHAVIORAL | mock loop + `reference/rubrics.md` (STAR) |
-| coding / algorithm / data structure / leetcode / implement | CODING | mock loop + `reference/rubrics.md` (coding) |
+| coding / algorithm / data structure / leetcode / implement | CODING | mock loop + `reference/rubrics.md` (coding); use `reference/coding-pattern-recognition.md` for approach coaching, grading gaps, and re-drill design |
 | mock / simulate / practice round / 모의 면접 | MOCK | full timed simulation; infer type or ask once |
 | grade / review my answer / 채점 / 피드백 | GRADE | skip Pose; score an answer the user already gave against the matching rubric + model answer |
 | study plan / prep roadmap / what to study | PLAN | build a time-boxed prep plan (`reference/rubrics.md`) |
@@ -130,6 +130,7 @@ Roles -> personas: interviewer=`agents/interviewer.md`, grader=`agents/critic.md
 | `templates/model-answer.html` | reusable HTML shell for generating any system-design model answer |
 | `examples/twitter-news-feed.html` | a generated HTML model answer (novel question), for reference |
 | `reference/rubrics.md` | BEHAVIORAL (STAR) + CODING rubrics, probing banks, and PLAN structure |
+| `reference/coding-pattern-recognition.md` | CODING: pattern recognition by asking what the problem asks the candidate to track |
 
 **Session complete =** mode stated; user performed the full answer under realistic time before any
 reveal; dimension-scored against the matching rubric; FIRST gap named with a concrete fix; model

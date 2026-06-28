@@ -51,6 +51,7 @@ reference/
   system-design-model-answer.html     SYSTEM-DESIGN ground truth (polished HTML; reveal at Grade)
   system-design-model-answer.md       ground-truth source text (verbatim)
   rubrics.md                          BEHAVIORAL (STAR) + CODING rubrics, PLAN
+  coding-pattern-recognition.md       CODING pattern detection by asking what must be tracked
 agents/
   interviewer.md                      terse probing interviewer persona
   critic.md                           independent rubric grader + re-drill designer

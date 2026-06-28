@@ -23,3 +23,10 @@
 - Rewrote the frontmatter description to be English-only and shorter while preserving the main trigger
   surfaces: mock interviews, grading, prep plans, and resume/application form autofill.
 - Rejected a long keyword list because the description is the routing surface and should stay concise.
+
+## Coding pattern recognition reference
+
+- Added a coding reference that teaches pattern detection by asking what information the problem asks
+  the candidate to track while scanning, rather than starting from memorized algorithm names.
+- Routed CODING mode to the new reference for approach coaching, grading gaps, and re-drill design.
+- Kept the guide separate from `SKILL.md` so coding support improves without making the router heavy.
