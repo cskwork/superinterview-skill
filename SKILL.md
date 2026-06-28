@@ -1,6 +1,6 @@
 ---
 name: superinterview
-description: Interview preparation coach and private resume helper for mock interviews, answer grading, prep plans, and resume/job application form autofill from local candidate context. Use for "/superinterview", "mock interview", "interview prep", "practice system design", "grade my interview answer", "behavioral practice", "coding interview", "fill my resume form", "auto-fill job application", "Amazon.jobs application", "Workday application", "면접 준비", "모의 면접", or "interview me"; model answers are revealed only after the user performs. Not for concept tutoring, production code, or one-off factual lookups.
+description: Interview prep and private resume helper for mock interviews, answer grading, prep plans, and job application form autofill. Use for system design, behavioral, coding, mock interviews, answer review, interview roadmaps, resume-form autofill, and application-profile autofill. Model answers are revealed only after the user performs; not for concept tutoring, production code, or factual lookups.
 ---
 
 # /superinterview - perform first, grade against ground truth
