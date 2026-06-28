@@ -146,120 +146,122 @@
 <header class="title">
   <div class="eyebrow">System Design Interview / Model Answer</div>
   <h1>대규모 음식 주문·배달 플랫폼 설계</h1>
-  <p class="lede">읽기 비중이 높은 탐색 경로는 CDN/캐시/검색 색인으로 최적화하고, 주문·결제는 강정합성과 멱등성으로 보호한다. Kafka가 서비스를 분리하고 트래픽 스파이크를 흡수한다.</p>
+  <p class="lede">"빠르게 보여주는 일"과 "정확하게 계산하는 일"이 한 흐름 안에 섞여 있습니다. 이 둘을 어떻게 갈라 짜느냐가 전체 설계를 결정합니다.</p>
   <div class="pills">
-    <span class="pill hot">strong vs eventual</span>
-    <span class="pill">idempotency</span>
-    <span class="pill">geospatial dispatch</span>
-    <span class="pill">graceful degradation</span>
+    <span class="pill hot">보는 흐름 vs 돈 흐름</span>
+    <span class="pill">멱등 결제</span>
+    <span class="pill">지리 배차</span>
+    <span class="pill">우아한 강등</span>
     <span class="pill">~45 min</span>
   </div>
 </header>
 
 <section id="s1">
   <h2><span class="num">01</span>요구사항 정의</h2>
-  <p>설계 전에 범위를 좁힌다. Coupang Eats / Uber Eats급 고트래픽 음식 주문·배달 플랫폼. 핵심 흐름: 고객이 식당을 탐색 → 주문 → 결제 → 식당 수락 → 라이더 배정 → 실시간 배달 추적.</p>
+  <p>우리가 만들 앱이 어떤 일을 하는지 한 줄로 잡습니다. <strong>고객이 식당을 찾고, 메뉴를 골라 주문·결제하고, 배달을 실시간으로 추적하는</strong> 한 줄 흐름이 중심입니다. 그 뒤에 식당이 주문을 받고 라이더가 음식을 날라 주는 일도 있습니다.</p>
   <h3>기능적 요구사항</h3>
   <ul>
-    <li>고객: 식당 탐색, 메뉴 조회, 주문, 결제, 주문 상태 추적</li>
-    <li>식당: 메뉴 관리, 주문 수락/거절, 조리 상태 갱신</li>
-    <li>라이더: 배달 요청 수신, 배정 수락, 픽업, 배달 진행 갱신</li>
+    <li><strong>고객</strong>: 식당 탐색, 메뉴 조회, 주문, 결제, 상태 추적</li>
+    <li><strong>식당</strong>: 메뉴 관리, 주문 수락/거절, 조리 상태 갱신</li>
+    <li><strong>라이더</strong>: 배달 요청 수신·수락, 픽업, 진행 갱신</li>
     <li>알림, 프로모션, 환불, CS 이벤트 지원</li>
   </ul>
-  <h3>비기능적 요구사항</h3>
+  <h3>앱이 지켜야 할 것</h3>
   <ul>
-    <li><strong>고가용성</strong>, 확장성, 스파이크 내성 (점심/저녁/공휴일/할인)</li>
-    <li>주문·결제 = <strong>강정합성</strong>; 식당 탐색·배달 추적 = 결과적 정합성 허용</li>
-    <li>탐색/추적은 저지연; 주문·결제는 초저지연보다 <strong>신뢰성</strong> 우선</li>
+    <li><strong>고가용성</strong>, 확장성, 점심/저녁/공휴일/할인 스파이크 내성</li>
+    <li>주문·결제 = <strong>정확하게(강정합)</strong>; 탐색·추적 = <strong>조금 늦어도 OK(결과적 정합)</strong></li>
+    <li>탐색/추적은 빨라야, 주문·결제는 초저지연보다 <strong>신뢰</strong> 우선</li>
   </ul>
   <div class="callout capacity">
-    <div class="label">초기 스케일 가정</div>
+    <div class="label">초기 규모 가정</div>
     <ul>
       <li>DAU ~1M</li>
-      <li>피크 식당 탐색 읽기: 10k-50k QPS</li>
-      <li>피크 주문 제출: 1k-5k 건/분</li>
-      <li>낮은 수치를 주더라도 10배 성장을 전제로 설계</li>
+      <li>피크 탐색 읽기: 10k-50k QPS</li>
+      <li>피크 주문: 1k-5k 건/분</li>
+      <li>숫자가 작아도 10배를 예상하고 짭니다.</li>
     </ul>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>면접관이 "탐색·메뉴·주문·결제·추적"만 나열했을 때, 설계자가 가장 먼저 분리해야 할 것은 <strong>돈이 걸린 경로(결제·주문상태)</strong>와 <strong>정보 조회 경로(탐색·메뉴·추적)</strong>다. 전자는 정확성·감사 가능성이 최우선이라 ACID + 멱등 + 조정 잡이 강제되고, 후자는 가용성·지연이 우선이라 캐시·결과적 정합성이 허용된다. 이 분할을 먼저 세우면 저장소 선택(관계형 vs 캐시/검색), 서비스 경계, 장애 시 강등 순서가 모두 자연히 정해진다.</p><p>범위 밖(리뷰·멤버십·다중 배달 경로 batching)을 <strong>명시적으로</strong> 빼는 것도 Staff 신호다 — "빼놓은 것"을 아는 것이 설계의 한 부분이다. 각 비기능 요구사항은 측정 가능해야 한다: "고가용성" = 목표 99.95%, "저지연" = 탐색 p99 &lt; 200ms처럼 숫자로 환원해야 나중에 관측 지표와 연결된다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>이 여정 한 줄 안에 <strong>두 종류의 경로</strong>가 섞여 있다는 걸 분리하는 것이 설계의 첫 단추다. 탐색·메뉴·추적은 <em>정보 조회</em>라 가용성·지연이 우선(캐시·결과적 정합성 허용), 주문·결제는 <em>돈과 상태</em>라 정확성·감사 가능성이 우선(ACID·멱등·조정 잡 강제). 이 분할을 먼저 세우면 저장소 선택·서비스 경계·장애 강등 순서가 자연히 정해진다.</p><p><strong>Staff 시그널 — 모호성 탐색:</strong> "주변이 반경(m)인가 배달 가능 영역(폴리곤)인가", "추적이 초인가 분인가", "결제가 즉시승인인가 에스크로인가"를 먼저 묻는다. 범위 밖(리뷰·멤버십·다중 배달)을 명시적으로 빼는 것도 Staff 신호 — "빼놓은 것"을 아는 것이 설계의 일부다. 각 비기능 요구사항은 측정 가능해야("고가용성"=99.95%) 12번 관측 지표와 연결된다.</p></div>
   </details>
 </section>
 
 <section id="s2">
   <h2><span class="num">02</span>용량 추정 &amp; 스케일</h2>
+  <p>얼마나 많은 사람이 쓸지 대략 계산합니다. 정확한 숫자보다 <strong>"보는 것이 주문보다 압도적으로 많다"</strong>는 걸 잡아내는 게 핵심입니다 — 이 비율이 저장소 전략을 갈라놓습니다.</p>
   <div class="metrics">
     <div class="metric"><div class="v">~1M</div><div class="k">일간 활성 사용자</div></div>
     <div class="metric"><div class="v">10k-50k</div><div class="k">피크 탐색 QPS</div></div>
     <div class="metric"><div class="v">1k-5k</div><div class="k">피크 주문/분</div></div>
     <div class="metric"><div class="v">10x</div><div class="k">성장 여유 설계</div></div>
   </div>
-  <p>탐색이 압도적으로 읽기 비중이 높고, 주문/결제는 쓰기이면서 동시에 강정합성이 필요하다 → 읽기 경로와 트랜잭션 경로를 분리해 각각 다른 스케일링 패턴을 갖게 한다.</p>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>DAU 1M, 피크 주문 5k/min이면 연간 약 1억 건. 주문 행 ~500B 기준 연 ~50GB로 단일 DB로도 당분간 가능하지만, 10x 성장을 전제하면 <span class="inline-mono">user_id</span> 샤딩을 1일부터 염두에 둬야 한다 — 나중에 샤딩 마이그레이션은 매우 비싸다.</p><p>진짜 조심할 부하는 주문이 아니라 <strong>라이더 GPS</strong>다. 동시 5만 라이더가 초당 1회 보고하면 50k 쓰기/s이고, 이것을 ACID DB에 그대로 쓰면 행 경합·복제 지연이 폭발한다. 그래서 GPS는 Redis GEO(TTL 수십 초)로 '최근 위치'만 두고, 픽업/도착 같은 마일스톤만 DB에 영속한다. <strong>"무엇을 영속할 것인가"를 분리</strong>하는 것이 용량 설계의 핵심이다.</p></div>
+  <p>탐색이 압도적으로 읽기 비중이 높고, 주문/결제는 쓰기이면서 동시에 정확해야 합니다 → 읽기 경로와 트랜잭션 경로를 분리해 각각 다른 스케일링 패턴을 갖게 합니다.</p>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>DAU 1M, 피크 주문 5k/min이면 연간 약 1억 건. 주문 행 ~500B 기준 연 ~50GB로 단일 DB로도 당분간 가능하지만, 10x 성장을 전제하면 <span class="inline-mono">user_id</span> 샤딩을 1일부터 염두에 둬야 한다 — 나중에 재샤딩은 매우 비싸다.</p><p>진짜 조심할 부하는 주문이 아니라 <strong>라이더 GPS</strong>다. 동시 5만 라이더가 초당 1회 보고하면 50k writes/s이고, ACID DB에 쓰면 행 경합·복제 지연이 폭발한다. 그래서 GPS는 Redis GEO(TTL 수십 초)로 '최근 위치'만, 픽업/도착 마일스톤만 DB 영속. <strong>"무엇을 영속할 것인가"를 분리</strong>하는 것이 용량 설계의 핵심이다.</p></div>
   </details>
 </section>
 
 <section id="s3">
   <h2><span class="num">03</span>전체 아키텍처</h2>
-  <p>시스템을 여러 서비스로 분리한다: API 게이트웨이, 사용자, 식당, 메뉴, 검색, 주문, 결제, 배차/라이더 매칭, 배달 추적, 알림, 프로모션/쿠폰, 이벤트 스트리밍, 데이터 분석·모니터링.</p>
+  <p>시스템을 여러 담당자(서비스)로 나눕니다. 모든 요청은 안내 데스크(API 게이트웨이)를 거쳐 가고, 데스크는 로그인 확인·요청 제한·알맞은 담당자 연결을 맡습니다.</p>
   <div class="diagram">
     <div class="row">
-      <span class="node">Customer App</span><span class="arrow">/</span>
-      <span class="node">Restaurant App</span><span class="arrow">/</span>
-      <span class="node">Rider App</span>
+      <span class="node">고객 앱</span><span class="arrow">/</span>
+      <span class="node">식당 앱</span><span class="arrow">/</span>
+      <span class="node">라이더 앱</span>
     </div>
     <div class="row" style="margin-top:10px"><span class="arrow">↓</span></div>
     <div class="row">
-      <span class="node">CDN / Load Balancer</span><span class="arrow">→</span>
-      <span class="node accent">API Gateway</span>
+      <span class="node">CDN / 로드밸런서</span><span class="arrow">→</span>
+      <span class="node accent">API 게이트웨이</span>
     </div>
     <div class="layer-label">마이크로서비스</div>
     <div class="row">
-      <span class="node">Restaurant</span><span class="node">Menu</span><span class="node">Search</span>
-      <span class="node green">Order</span><span class="node green">Payment</span>
-      <span class="node">Dispatch</span><span class="node">Tracking</span><span class="node">Notification</span>
+      <span class="node">식당</span><span class="node">메뉴</span><span class="node">검색</span>
+      <span class="node green">주문</span><span class="node green">결제</span>
+      <span class="node">배차</span><span class="node">추적</span><span class="node">알림</span>
     </div>
     <div class="layer-label">데이터 계층</div>
     <div class="row">
-      <span class="node green">Redis Cache</span>
+      <span class="node green">Redis 캐시</span>
       <span class="node green">MySQL/PostgreSQL</span>
       <span class="node">Elasticsearch</span>
       <span class="node amber">Kafka</span>
-      <span class="node">Object Storage</span>
+      <span class="node">객체 저장소</span>
     </div>
   </div>
   <ul>
-    <li><strong>정적 자산</strong>(이미지, 식당 사진)은 CDN</li>
+    <li><strong>정적 자산</strong>(사진)은 CDN</li>
     <li><strong>동적 요청</strong>은 API 게이트웨이 → 인증, 레이트리밋, 라우팅, 스로틀</li>
-    <li><strong>읽기 비중 서비스</strong>(탐색/메뉴/검색): Redis 캐시 적극 사용. 검색은 Elasticsearch/OpenSearch (위치 기반 발견, 키워드, 필터, 랭킹)</li>
-    <li><strong>트랜잭션 서비스</strong>(주문/결제): ACID가 필요하므로 MySQL/PostgreSQL. 고스케일에선 user_id/region/order_id로 샤딩</li>
-    <li><strong>비동기 워크플로</strong>: Kafka로 이벤트 분리 → 결합도 감소, 스파이크 회복력 향상</li>
+    <li><strong>읽기 비중 서비스</strong>(탐색/메뉴/검색): Redis 캐시 적극 사용. 검색은 Elasticsearch(위치·키워드·필터·랭킹)</li>
+    <li><strong>트랜잭션 서비스</strong>(주문/결제): 정확해야 하므로 MySQL/PostgreSQL. 고스케일에선 user_id/region으로 샤딩</li>
+    <li><strong>비동기</strong>: Kafka로 이벤트 분리 → 결합도 ↓, 스파이크 회복력 ↑</li>
   </ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>왜 서비스를 이렇게 나누는가 — 각 서비스의 <strong>스케일링 패턴</strong>이 다르기 때문이다. 탐색/메뉴는 읽기 QPS가 주문의 수십~수백 배라 캐시 복제로 수평 확장이 쉽고, 주문/결제는 쓰기 경합과 트랜잭션이 있어 무작정 복제만 늘릴 수 없다. 이 둘을 같은 DB/서비스에 묶으면 읽기 스파이크가 결제 지연으로 번진다.</p><p>API 게이트웨이는 인증·레이트리밋·라우팅의 단일 진입점이면서 동시에 <strong>장애 전파 차단벽</strong>이다 — 하위 서비스 장애 시 게이트웨이에서 타임아웃/폴백 응답을 내어 호출자 폭주(cascading failure)를 막는다. 서비스마다 별도 DB(또는 최소 별도 스키마)를 두는 이유는 장애 격리와 독자적 데이터 모델링 때문이다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>왜 서비스를 나누는가 — 각 서비스의 <strong>스케일링 패턴</strong>이 다르기 때문이다. 탐색/메뉴는 읽기 QPS가 주문의 수십~수백 배라 캐시 복제로 수평 확장이 쉽고, 주문/결제는 쓰기 경합·트랜잭션이 있어 무작정 복제만 늘릴 수 없다. 같은 DB에 묶으면 읽기 스파이크가 결제 지연으로 번진다.</p><p>API 게이트웨이는 인증·레이트리밋의 단일 진입점이자 <strong>장애 전파 차단벽</strong>이다 — 하위 서비스 장애 시 타임아웃/폴백으로 cascading failure를 막는다. 서비스마다 별도 DB를 두는 것도 장애 격리(bulkhead)와 독자적 데이터 모델링 때문이다.</p></div>
   </details>
 </section>
 
 <section id="s4">
   <h2><span class="num">04</span>핵심 주문 플로우</h2>
-  <p>가장 중요한 흐름은 주문 배치다.</p>
+  <p>가장 중요한 흐름은 주문 배치입니다.</p>
   <ol>
-    <li>고객이 식당·메뉴 탐색 - 읽기 비중. Redis 캐시/검색 색인에서 우선 서빙, 미스 시 DB → 캐시 재채움.</li>
-    <li>주문 제출. <code>Order Service</code>가 검증: 사용자, 식당 상태, 메뉴 가용성, 가격, 쿠폰, 주소, 배달권역. 주문 생성, 상태 <code>PENDING_PAYMENT</code>.</li>
-    <li><code>Payment Service</code> 결제 처리. <strong>멱등</strong>해야 함 - 클라이언트/서버 생성 idempotency key로 중복 결제 방지.</li>
-    <li>결제 성공 → <code>PaymentSucceeded</code> 이벤트 Kafka 발행 → <code>Order Service</code>가 소비해 상태 <code>PAID</code>로.</li>
-    <li>식당 앱/서비스가 주문 수신. 수락 시 <code>RestaurantAccepted</code> 이벤트 발행.</li>
-    <li><code>Dispatch Service</code>가 위치, 라이더 가용성, 거리, 조리 시간, 배달 SLA 기반 라이더 매칭. 배정 시 <code>RIDER_ASSIGNED</code>.</li>
-    <li><code>Delivery Tracking</code>이 라이더 앱의 GPS 갱신 수신. 고객에게 WebSocket/SSE/푸시로 준실시간 갱신.</li>
+    <li>고객이 식당·메뉴 탐색 — 읽기 비중. 캐시/검색에서 우선 서빙, 미스 시 DB → 캐시 재채움.</li>
+    <li>주문 제출. <code>주문 서비스</code>가 검증(사용자, 식당 상태, 메뉴 가용성, 가격, 쿠폰, 주소, 배달권역). 주문 생성, 상태 <code>결제대기</code>.</li>
+    <li><code>결제 서비스</code> 처리. <strong>멱등</strong>해야 — idempotency key로 중복 결제 방지.</li>
+    <li>결제 성공 → <code>결제성공</code> 이벤트 Kafka 발행 → <code>주문 서비스</code>가 소비해 상태 <code>결제됨</code>으로.</li>
+    <li>식당 앱이 수신. 수락 시 <code>식당수락</code> 이벤트.</li>
+    <li><code>배차 서비스</code>가 위치·가용성·거리·조리시간·배달 SLA로 라이더 매칭. <code>배정됨</code>.</li>
+    <li><code>배달 추적</code>이 라이더 GPS 수신. WebSocket/SSE/푸시로 준실시간 갱신.</li>
   </ol>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>동기 경로를 <strong>"결제 승인 응답"</strong>까지로 긋는 선택은 의도적이다 — 그 시점까지는 고객이 화면을 보며 기다리고 있고, 실패하면 즉시 알려야 한다(결제 실패 = 주문 실패). 그 이후(수락·배정·추적)는 초~분 단위 비동기이므로 Kafka로 넘긴다.</p><p>이 분리는 역으로 <strong>"결제는 됐는데 주문 상태 갱신에 실패하면?"</strong>이라는 정합성 구멍을 만든다. 해결은 Payment Service가 PG 승인을 자체 DB에 먼저 영속(=진실)하고 <code>PaymentSucceeded</code>를 발행하는 것 — Order Service가 소비에 실패해도 재시도로, 최종적으로 PG 웹훅과 야간 조정 잡이 안전망이 된다. <strong>"어디서 동기를 끊는가"가 정합성·복구 비용을 결정한다</strong>는 점이 이 플로우의 핵심 설계 결정이다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>동기 경로를 <strong>"결제 승인 응답"</strong>까지로 긋는 선택은 의도적이다 — 그 시점까지는 고객이 기다리고 있고 실패하면 즉시 알려야 한다(결제 실패 = 주문 실패). 그 이후는 초~분 단위 비동기라 Kafka로 넘긴다.</p><p>이 분리는 <strong>"결제는 됐는데 주문 갱신 실패하면?"</strong>이라는 정합성 구멍을 만든다. 해결: Payment Service가 PG 승인을 자체 DB에 먼저 영속(=진실)하고 <code>PaymentSucceeded</code> 발행 — Order가 소비 실패해도 재시도로, 최종적으로 PG 웹훅과 야간 조정 잡이 안전망. <strong>"어디서 동기를 끊는가"가 정합성·복구 비용을 결정한다</strong>는 점이 핵심 설계 결정이다.</p></div>
   </details>
 </section>
 
 <section id="s5">
   <h2><span class="num">05</span>데이터 모델</h2>
+  <p>주문·결제는 표(관계형)에 — 정확해야 해서. 라이더 위치·주문 상태는 빠른 저장소(캐시)에. 주문은 <span class="inline-mono">user_id</span> 기준 샤딩.</p>
   <div class="schema">
     <div class="table-card">
       <div class="tname">orders</div>
@@ -278,7 +280,7 @@
       <div class="field">order_id</div>
       <div class="field">menu_item_id</div>
       <div class="field">quantity</div>
-      <div class="field">unit_price <span class="idx">(snapshot)</span></div>
+      <div class="field">unit_price <span class="idx">(스냅샷)</span></div>
       <div class="field">options</div>
     </div>
     <div class="table-card">
@@ -302,80 +304,80 @@
       <div class="field">est_pickup / est_delivery</div>
     </div>
   </div>
-  <p>주문 상태는 <strong>상태 기계</strong>로 모델링한다 - 분산 시스템은 중복·지연·순서 뒤바짐 이벤트를 받을 수 있으므로 각 전환을 검증해야 한다.</p>
+  <p>주문 상태는 <strong>상태 기계</strong>로 모델링합니다 — 분산에선 중복·지연·순서 뒤바짐 이벤트가 오므로 각 전환을 검증합니다.</p>
   <div class="flow">
-    <span class="step">CREATED</span> → <span class="step">PENDING_PAYMENT</span> → <span class="step">PAID</span> → <span class="step">RESTAURANT_ACCEPTED</span> → <span class="step">RIDER_ASSIGNED</span> → <span class="step">PICKED_UP</span> → <span class="step">DELIVERED</span><br>
-    <span class="fail">PAYMENT_FAILED · RESTAURANT_REJECTED · CANCELLED · REFUNDED · DELIVERY_FAILED</span>
+    <span class="step">생성</span> → <span class="step">결제대기</span> → <span class="step">결제됨</span> → <span class="step">식당수락</span> → <span class="step">배정됨</span> → <span class="step">픽업</span> → <span class="step">배달완료</span><br>
+    <span class="fail">결제실패 · 식당거절 · 취소 · 환불 · 배달실패</span>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p><span class="inline-mono">order_items.unit_price</span>는 <strong>주문 시점 가격 스냅샷</strong>이다. 메뉴 가격이 나중에 바뀌어도 이 주문의 금액은 불변이어야 하고, 환불 분쟁 시 증거가 된다 — 외부 참조(id)만 저장하면 결제 시점과 환불 시점 금액이 어긋난다.</p><p><span class="inline-mono">payments.idempotency_key</span>에 <strong>unique 제약</strong>을 거는 것이 이중결제 방지의 물리적 안전망이다. 애플리케이션에서 "이미 처리됐나?" 검사만으로는 두 요청이 동시에 검사를 통과하는 race를 막지 못한다 — DB 제약은 그 경합마저 거부한다. <span class="inline-mono">order_id</span>에 타임스탬프+샤드를 인코딩(Snowflake류)하면 정렬 키, 파티션 키, 시간 기반 보관/삭제가 한 필드로 해결된다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><span class="inline-mono">order_items.unit_price</span>는 <strong>주문 시점 가격 스냅샷</strong>이다 — 메뉴 가격이 나중에 바뀌어도 이 주문 금액은 불변이어야 하고, 환불 분쟁 시 증거가 된다. 외부 참조만 두면 결제 시점·환불 시점 금액이 어긋난다.</p><p><span class="inline-mono">payments.idempotency_key</span>에 <strong>unique 제약</strong>을 거는 것이 이중결제 방지의 물리적 안전망이다 — 애플리케이션 검증만으로는 두 재시도가 동시에 검사를 통과하는 race를 막지 못한다. DB 제약은 그 경합마저 거부한다. <span class="inline-mono">order_id</span>에 타임스탬프+샤드를 인코딩(Snowflake류)하면 정렬 키·파티션 키·시간 기반 보관이 한 필드로 해결된다.</p></div>
   </details>
 </section>
 
 <section id="s6">
   <h2><span class="num">06</span>캐싱 전략</h2>
   <ul>
-    <li><strong>식당/메뉴 데이터</strong>: Redis 캐시. TTL 1-5분 (결제 데이터만큼 엄격하지 않음).</li>
+    <li><strong>식당/메뉴</strong>: Redis 캐시. TTL 1-5분 (결제 데이터만큼 엄격하지 않음).</li>
     <li><strong>사용자 세션/토큰</strong>: 빠른 접근을 위해 Redis.</li>
     <li><strong>레이트리밋</strong>: 사용자/IP/기기별 요청 수 Redis 추적.</li>
-    <li><strong>핫 식당/프로모션</strong>: 이벤트 시작 전 캐시 사전 워밍(pre-warm).</li>
+    <li><strong>핫 식당/프로모션</strong>: 이벤트 시작 전 사전 워밍.</li>
   </ul>
   <div class="callout fail">
     <div class="label">주의</div>
-    <p>Redis를 주문/결제의 <strong>진실 공급원(source of truth)으로는 쓰지 않는다</strong>. 주문·결제는 내구성 있는 관계형 DB에 저장한다.</p>
+    <p>Redis를 주문/결제의 <strong>진실 공급원(source of truth)으로는 쓰지 않습니다</strong>. 주문·결제는 내구성 있는 관계형 DB에 저장합니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>캐시 전략의 함정은 <strong>"언제 무효화할 것인가"</strong>다. 식당 영업/품절은 1-5분 TTL로 충분히 fresh하지만, 가격 변경은 위험하다 — 그래서 주문 검증 시 캐시를 믿되 최종 가격은 DB 기준으로 재확인하는 "캐시로 보여주되 진실로 검증" 패턴이 안전하다.</p><p><strong>캐시 스탬피드</strong>(인기 키 만료 순간 다수가 동시에 DB로 몰리는 현상)는 stale-while-revalidate나 per-key 락(messagebus/Redis SETNX)으로 막는다. 핵심 원칙 한 줄: Redis는 '빠른 읽기' 계층이지 '진실'이 아니다 — 결제·주문 상태는 절대 Redis만 믿지 않는다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>캐시 함정은 <strong>"언제 무효화할 것인가"</strong>다. 식당 영업/품절은 1-5분 TTL로 충분히 fresh하지만, 가격 변경은 위험하다 — 그래서 주문 검증 시 캐시를 믿되 최종 가격은 DB 기준으로 재확인하는 "캐시로 보여주되 진실로 검증" 패턴이 안전하다.</p><p><strong>캐시 스탬피드</strong>(인기 키 만료 순간 다수가 DB로 몰리는 현상)는 stale-while-revalidate나 per-key 락으로 막는다. 핵심 원칙 한 줄: Redis는 '빠른 읽기' 계층이지 '진실'이 아니다 — 결제·주문 상태는 절대 Redis만 믿지 않는다.</p></div>
   </details>
 </section>
 
 <section id="s7">
   <h2><span class="num">07</span>DB &amp; 정합성 전략</h2>
-  <p>도메인마다 다른 정합성 모델을 적용한다.</p>
+  <p>도메인마다 다른 정합성 모델을 적용합니다.</p>
   <ul>
-    <li><strong>강정합성</strong>: 주문 생성, 결제, 취소, 환불 - 돈과 사용자 신뢰에 직결.</li>
-    <li><strong>결과적 정합성</strong>: 식당 검색, 메뉴 표시, 배달 추적, 추천 랭킹 - 약간의 stale은 감내.</li>
+    <li><strong>강정합</strong>: 주문 생성, 결제, 취소, 환불 — 돈과 신뢰에 직결.</li>
+    <li><strong>결과적 정합</strong>: 식당 검색, 메뉴 표시, 배달 추적, 추천 랭킹 — 약간의 stale 감내.</li>
   </ul>
-  <p>트랜잭션 DB는 읽기 확장/페일오버를 위해 복제 사용(primary=쓰기, replica=읽기). 트래픽 증가 시 region/order_id로 샤딩 (예: 서울/부산 분할, 또는 order_id에 region+timestamp 인코딩).</p>
+  <p>트랜잭션 DB는 읽기 확장/페일오버를 위해 복제 사용(primary=쓰기, replica=읽기). 트래픽 증가 시 region/order_id로 샤딩.</p>
   <div class="callout">
     <div class="label" style="color:var(--text-dim)">핵심 인덱스</div>
     <p><code>orders(user_id, created_at)</code> · <code>orders(restaurant_id, created_at)</code> · <code>orders(status, updated_at)</code> · <code>delivery_tasks(rider_id, task_status)</code> · <code>payments(order_id)</code> · <code>payments(idempotency_key)</code></p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>정합성을 "도메인별로" 나눈다는 것의 실질적 의미: 결제·주문상태·환불은 강정합(ACID), 검색·랭킹·추적위치는 결과적. <strong>경계는 <span class="inline-mono">PaymentSucceeded</span> 이벤트</strong> — 이전은 동기 트랜잭션, 이후는 비동기 결과적. 이 경계를 어디 긋느냐가 환불 흐름·조정 주기·read-your-writes 비용을 모두 결정한다.</p><p>예: 고객이 방금 결제한 직후 "내 주문"을 열면 읽기 복제본 lag 때문에 안 보일 수 있다. read-your-writes를 보장하려면 결제 응답에 order_id+버전을 실어 클라이언트가 낙관적으로 표시하거나, '내 주문' 쿼리는 짧은 시간 창 동안 primary에서 읽는다 — 모두 경계 위치에서 파생되는 비용이다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>정합성을 "도메인별로" 나눈다는 것의 실질적 의미: 결제·주문상태·환불은 강정합(ACID), 검색·랭킹·추적위치는 결과적. <strong>경계는 <span class="inline-mono">PaymentSucceeded</span> 이벤트</strong> — 이전은 동기 트랜잭션, 이후는 비동기 결과적. 이 경계를 어디 긋느냐가 환불 흐름·조정 주기·read-your-writes 비용을 모두 결정한다.</p><p>예: 고객이 결제 직후 "내 주문"을 열면 읽기 복제본 lag 때문에 안 보일 수 있다. read-your-writes 보장하려면 결제 응답에 order_id+버전을 실어 클라이언트가 낙관적으로 표시하거나, '내 주문'은 짧은 창 동안 primary에서 읽는다 — 모두 경계 위치에서 파생되는 비용이다.</p></div>
   </details>
 </section>
 
 <section id="s8">
   <h2><span class="num">08</span>딥다이브: 배차 &amp; 라이더 매칭</h2>
-  <p>배차는 배달 시스템에서 가장 중요한 부분 중 하나다. 라이더 위치, 식당/고객 위치, 라이더 가용성, 현재 작업량, 예상 조리 시간, 약속 배달 SLA를 모두 고려해 매칭한다.</p>
+  <p>배차는 배달 시스템에서 가장 중요한 부분 중 하나입니다. 라이더 위치, 식당/고객 위치, 가용성, 작업량, 예상 조리 시간, 약속 배달 SLA를 모두 고려해 매칭합니다.</p>
   <ul>
-    <li><strong>지역 질의</strong>: Redis GEO, PostGIS, 또는 H3/geohash 위치 인덱싱.</li>
-    <li>라이더는 연속적으로 GPS를 보내지만, 모든 갱신을 DB에 쓰면 쓰기 부하 폭발 → <strong>최근 위치는 Redis/고처리량 위치 저장소</strong>, 중요 마일스톤만 DB 영속화.</li>
-    <li><strong>단순 알고리즘</strong>: 반경 내 가용 라이더 탐색 → 예상 픽업 시간 순 정렬 → 최적 라이더 배정 → 오퍼 전송. 타임아웃 내 미수락 시 다음 라이더로 재시도.</li>
-    <li><strong>대규모</strong>: 배칭, 예상 조리 시간 예측, 라이더 공정성, 배달 비용, 지역별 수요-공급 불균형까지 고려.</li>
+    <li><strong>지역 질의</strong>: Redis GEO, PostGIS, 또는 H3/geohash.</li>
+    <li>라이더는 계속 GPS를 보내지만 매 갱신을 DB에 쓰면 쓰기 폭발 → <strong>최근 위치는 빠른 저장소</strong>, 마일스톤만 DB 영속화.</li>
+    <li><strong>단순 알고리즘</strong>: 반경 내 가용 라이더 탐색 → 예상 픽업 시간순 정렬 → 최적 배정 → 오퍼 전송. 타임아웃 미수락 시 다음 라이더.</li>
+    <li><strong>대규모</strong>: 배칭, 조리 시간 예측, 라이더 공정성, 비용, 지역별 수요-공급 불균형까지.</li>
   </ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>배차 품질(ETA·비용·공정성)과 시스템 처리량은 자주 충돌한다. 단일 "최적 라이더"를 계산해 push하면 품질은 좋지만 핫 경합·단일 병목이 생기고, 반경 브로드캐스트 pull은 처리량은 좋지만 차선 라이더가 배정될 수 있다. 실제 플랫폼은 <strong>평시엔 push(1순위 오퍼), 폭주 시엔 pull(브로드캐스트)로 전환</strong>해 병목을 분산한다.</p><p>이 "전환 임계값"을 <strong>관측하며 조정하는 설정값</strong>이라는 점까지 말하면 Staff다 — 정답이 아니라 튜닝 가능한 파라미터임을 아는 것. GPS 쓰기 부하는 위치 전송 주기를 라이더 속도에 따라 적응시켜(정지 시 드물게, 이동 시 빽빽히) 추가로 통제한다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>배차 품질(ETA·비용·공정성)과 처리량은 자주 충돌한다. 단일 '최적 라이더' push는 품질↑·단일 병목 위험, 반경 브로드캐스트 pull은 처리량↑·차선 배정 위험. 실제 플랫폼은 <strong>평시엔 push(1순위 오퍼), 폭주 시엔 pull(브로드캐스트)</strong>로 전환해 병목 분산.</p><p>이 "전환 임계값"을 <strong>관측하며 조정하는 설정값</strong>이라는 점까지 말하면 Staff다 — 정답이 아니라 튜닝 가능한 파라미터. GPS 쓰기는 전송 주기를 라이더 속도에 적응(정지 시 드물게)시켜 추가 통제한다.</p></div>
   </details>
 </section>
 
 <section id="s9">
   <h2><span class="num">09</span>트래픽 스파이크 처리</h2>
-  <p>점심/저녁/공휴일/할인 캠페인에 스파이크가 예상된다. 여러 계층으로 흡수한다:</p>
+  <p>점심/저녁/공휴일/할인에 스파이크가 예상됩니다. 여러 계층으로 흡수합니다:</p>
   <ol>
     <li><strong>CDN + Redis</strong>로 백엔드 읽기 압력 감소.</li>
     <li><strong>API 게이트웨이</strong> 레이트리밋/스로틀.</li>
     <li><strong>Kafka</strong>가 비동기 처리를 위해 버스트 흡수 (알림, 분석, 식당 이벤트 로그, 일부 배차 재시도).</li>
-    <li>서비스 <strong>수평 오토스케일</strong> (CPU, 메모리, 지연, 큐 lag, 에러율 기반).</li>
-    <li><strong>비핵심 기능 강등</strong>: 부하 시 개인화 추천 비활성, 추적 갱신 빈도 감소, 식당 랭킹 단순화.</li>
+    <li>서비스 <strong>수평 오토스케일</strong> (CPU, 메모리, 지연, 큐 lag, 에러율).</li>
+    <li><strong>비핵심 강등</strong>: 개인화 추천 비활성, 추적 빈도 감소, 랭킹 단순화.</li>
   </ol>
   <div class="callout tradeoff">
     <div class="label">핵심 원칙</div>
-    <p>핵심 주문·결제는 안정적으로 유지하고, 비핵심 기능은 강등 가능해야 한다.</p>
+    <p>핵심 주문·결제는 안정적으로, 비핵심 기능은 강등 가능해야 합니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>스파이크 대응의 원칙은 <strong>"코어를 지키고 비핵심을 희생한다"</strong>다. 코어 = 주문 생성·결제(돈 흐름). 비핵심 = 개인화 추천·빈도 높은 추적 갱신·복잡한 랭킹. 부하 시 추적 갱신을 1s→5s로 줄이면 GPS 쓰기·WebSocket 연결 수가 절반 아래로 떨어져 백엔드가 숨을 쉰다 — 고객 경험엔 미세한 영향, 시스템 생존엔 큰 영향.</p><p>이 <strong>"강등 매트릭스"</strong>를 기능 플래그로 미리 준비해 두면, 장애 중 급히 코딩하지 않고 플래그 한 칸만 내린다. "코어를 지킨다"는 말은 곧 "코어 경로의 의존성(Kafka/DB/PG)을 비코어와 분리해, 비코어 장애가 코어로 번지지 않게 한다"는 뜻이기도 하다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>스파이크 대응의 원칙은 <strong>"코어를 지키고 비핵심을 희생한다"</strong>다. 코어 = 주문·결제(돈 흐름). 비핵심 = 추천·고빈도 추적·복잡한 랭킹. 부하 시 추적 갱신을 1s→5s로 줄이면 GPS 쓰기·WebSocket 연결 수가 절반 아래로 떨어져 백엔드가 숨 쉰다 — 고객 경험엔 미세, 시스템 생존엔 큰 영향.</p><p>이 <strong>"강등 매트릭스"</strong>를 기능 플래그로 미리 준비하면 장애 중 급히 코딩하지 않고 플래그 한 칸만 내린다. "코어를 지킨다"는 말은 곧 "코어 경로 의존성을 비코어와 분리해 비코어 장애가 코어로 번지지 않게 한다(bulkhead)"는 뜻이다.</p></div>
   </details>
 </section>
 
@@ -384,29 +386,29 @@
   <div class="callout fail">
     <div class="label">주요 장애 시나리오</div>
     <ul>
-      <li><strong>결제 성공 but 주문 상태 갱신 실패</strong> → Kafka 재시도 + 정합 작업이 최종 수정. 결제 provider 기록과 내부 기록을 주기적 비교.</li>
-      <li><strong>식당 무응답</strong> → 타임아웃 후 자동 취소, 고객 환불.</li>
-      <li><strong>라이더 배정 실패</strong> → Dispatch가 더 넓은 반경으로 재시도 또는 수동 운영으로 에스컬레이션.</li>
-      <li><strong>Kafka 지연</strong> → 중간 상태를 사용자에게 명확히 노출 ("결제 완료, 식당 확인 대기 중").</li>
+      <li><strong>결제 성공 but 주문 갱신 실패</strong> → Kafka 재시도 + 정합 작업이 최종 수정. 결제 provider 기록과 주기적 비교.</li>
+      <li><strong>식당 무응답</strong> → 타임아웃 후 자동 취소, 환불.</li>
+      <li><strong>배정 실패</strong> → 더 넓은 반경 재시도 또는 수동 에스컬레이션.</li>
+      <li><strong>Kafka 지연</strong> → 중간 상태 명확 노출 ("결제 완료, 식당 확인 대기 중").</li>
       <li><strong>Redis 다운</strong> → DB 풀백, 단 레이트리밋으로 DB 보호.</li>
-      <li><strong>DB primary 장애</strong> → 복제본 + 자동 페일오버. 다중 AZ 배포 필수.</li>
+      <li><strong>DB primary 장애</strong> → 복제본 + 자동 페일오버. 다중 AZ 필수.</li>
     </ul>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>"결제 성공-주문 갱신 실패" 시나리오가 가장 자주 얇게 다뤄진다. 올바른 흐름: Payment Service가 PG 승인을 받는 즉시 <strong>자체 DB에 영속(=진실)</strong>하고 <code>PaymentSucceeded</code>를 발행한다. Order Service가 이벤트 소비에 실패해도 재시도로, 또는 <strong>PG 웹훅(권위 소스)</strong>을 Order가 직접 구독해 복구한다. 야간 조정 잡은 '마지막 안전망'이지 1차 방어가 아니다.</p><p><strong>멱등키가 없으면 재시도가 이중 결제·이중 주문이 된다</strong> — 모든 외부 효과(결제·알림·배정)는 멱등이어야 한다. Kafka 장애 시 고객에게 "대기 중" 중간 상태를 보여주는 것은 사용자 신뢰를 지키는 데 실제로 중요하다 — 침묵보다 명확한 '진행 중'이 낫다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>"결제 성공-주문 갱신 실패"가 가장 자주 얇게 다뤄진다. 올바른 흐름: Payment Service가 PG 승인을 받는 즉시 <strong>자체 DB에 영속(=진실)</strong>하고 <code>PaymentSucceeded</code> 발행. Order가 소비 실패해도 재시도로, 또 <strong>PG 웹훅(권위 소스)</strong>을 Order가 직접 구독해 복구. 야간 조정 잡은 '마지막 안전망'이지 1차 방어가 아니다.</p><p><strong>멱등키가 없으면 재시도가 이중 결제·이중 주문이 된다</strong> — 모든 외부 효과(결제·알림·배정)는 멱등이어야 한다. Kafka 지연 시 침묵보다 명확한 '진행 중'이 낫다 — 사용자 신뢰를 지킨다.</p></div>
   </details>
 </section>
 
 <section id="s11">
   <h2><span class="num">11</span>트레이드오프 분석</h2>
   <ul>
-    <li><strong>정합성 vs 가용성</strong>: 결제/주문상태/취소/환불 = 강정합성. 검색/랭킹/메뉴 캐시/배달 추적 = 가용성·성능을 위해 결과적 정합성.</li>
-    <li><strong>지연 vs 신뢰성</strong>: 탐색·검색은 캐시·색인으로 저지연. 주문 배치는 정확성·멱등성·신뢰성을 위해 약간의 추가 지연 감내.</li>
-    <li><strong>비용 vs 성능</strong>: 핫/빈번 데이터만 캐시. 읽기 비중과 쓰기 비중 서비스를 분리해 독립 스케일.</li>
-    <li><strong>모놀리스 vs 마이크로서비스</strong>: 작으면 너무 많은 서비스로 시작하지 않는다. 단 Coupang 규모면 Order/Payment/Dispatch/Restaurant/Search/Notification 분리가 합리 (서로 다른 스케일링 패턴·장애 경계).</li>
+    <li><strong>정합성 vs 가용성</strong>: 결제/주문상태/취소/환불 = 강정합. 검색/랭킹/메뉴 캐시/배달 추적 = 가용성·성능 위해 결과적.</li>
+    <li><strong>지연 vs 신뢰</strong>: 탐색·검색은 캐시·색인으로 저지연. 주문은 정확성·멱등성·신뢰성 위해 약간의 지연 감내.</li>
+    <li><strong>비용 vs 성능</strong>: 핫/빈번 데이터만 캐시. 읽기/쓰기 서비스 분리로 독립 스케일.</li>
+    <li><strong>모놀리스 vs 마이크로서비스</strong>: 작으면 너무 많은 서비스로 시작 않는다. Coupang 규모면 Order/Payment/Dispatch/Restaurant/Search/Notification 분리가 합리.</li>
   </ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>모놀리스 vs 마이크로서비스의 진짜 트레이드오프는 <strong>"팀 경계·독립 배포·장애 격리" vs "분산 시스템 복잡도(트레이싱·eventual consistency·네트워크 장애)"</strong>다. 작은 팀·초기엔 잘 모듈화된 모놀리스가 이긴다 — 분산 비용이 분할 이득보다 크기 때문이다. 쿠팡급에서는 Order/Payment/Dispatch가 각기 다른 스케일 패턴(결제=저부하 고정합, 탐색=고부하 읽기)과 다른 장애 모드를 가져 분리가 합당하다.</p><p>"왜 지금 이 크기에서 나누는가"를 근거로 말하는 것이 Staff 포인트다 — 조직 규모(콘웨이 법칙)와 트래픽 규모가 둘 다 분리를 정당화할 때 나눈다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>모놀리스 vs 마이크로서비스의 진짜 트레이드오프는 <strong>"팀 경계·독립 배포·장애 격리" vs "분산 시스템 복잡도(트레이싱·eventual consistency·네트워크 장애)"</strong>다. 작은 팀·초기엔 잘 모듈화된 모놀리스가 이긴다 — 분산 비용이 분할 이득보다 크다. Coupang급에선 Order/Payment/Dispatch가 각기 다른 스케일 패턴·장애 모드를 가져 분리가 합당.</p><p>"왜 지금 이 크기에서 나누는가"를 근거로 말하는 것이 Staff 포인트다 — 조직 규모(콘웨이 법칙)와 트래픽 규모가 둘 다 분리를 정당화할 때 나눈다.</p></div>
   </details>
 </section>
 
@@ -415,8 +417,8 @@
   <h3>주요 병목</h3>
   <ul>
     <li><strong>주문/결제 DB</strong> → 인덱싱, 읽기 복제본, 샤딩, 짧은 트랜잭션.</li>
-    <li><strong>피크 시 식당/메뉴 탐색</strong> → CDN, Redis 캐시, 사전 워밍, 검색 색인 최적화.</li>
-    <li><strong>배차 매칭</strong> → 지역 인덱싱, 지역 분할, 비동기 매칭 워크플로.</li>
+    <li><strong>피크 시 탐색/메뉴</strong> → CDN, Redis, 사전 워밍, 검색 색인 최적화.</li>
+    <li><strong>배차 매칭</strong> → 지역 인덱싱, 지역 분할, 비동기 매칭.</li>
     <li><strong>알림 fan-out</strong> → Kafka + 워커 풀로 비동기.</li>
     <li><strong>외부 결제 provider 지연/장애</strong> → 타임아웃, 백오프 재시도, 멱등 키, 정합 작업.</li>
   </ul>
@@ -424,28 +426,28 @@
   <ul>
     <li><strong>지표</strong>: API p50/p95/p99, 서비스별 에러율, 주문 성공률, 결제 성공/실패율, Kafka consumer lag, 배차 배정 지연, 배달 SLA 위반, DB CPU/슬로우쿼리/락 대기, Redis 히트율·메모리, 외부 결제 지연.</li>
     <li><strong>분산 트레이싱</strong>: 한 주문이 게이트웨이 → Order → Payment → Kafka → Dispatch → Notification을 가로지르는 추적.</li>
-    <li><strong>인시던트 대응</strong>: 대시보드, 알림, 런북, 기능 플래그 (장애 중 비핵심 기능 빠른 비활성).</li>
+    <li><strong>인시던트 대응</strong>: 대시보드, 알림, 런북, 기능 플래그.</li>
   </ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>가장 중요한 관측 지표는 <strong>비즈니스 SLO</strong>다 — 주문 성공률, 결제 성공률, 배달 SLA 준수율. 이것들이 빨갛게 변하면 p99 지연이 정상이어도 사고다. p99는 기술 건전성 지표일 뿐, 사용자가 겪는 현실은 비즈니스 SLO다.</p><p>분산 트레이싱은 한 주문이 7개 서비스를 지나는 경로를 <span class="inline-mono">trace_id</span>로 엮어 "5번째 홉에서 3초 걸렸다"를 찾게 해준다. <strong>조정 대시보드(PG vs 내부 결제 불일치 건수)는 0에 가까워야 정상</strong> — 이것이 0이 아니면 정합성 구멍이 실제로 발생하고 있다는 신호이므로, 이 숫자를 '제1의 정합성 헬스 지표'로 다룬다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>가장 중요한 관측 지표는 <strong>비즈니스 SLO</strong>다 — 주문 성공률, 결제 성공률, 배달 SLA 준수율. 이것들이 빨갛게 변하면 p99가 정상이어도 사고다. 분산 트레이싱은 한 주문이 7개 서비스를 지나는 경로를 <span class="inline-mono">trace_id</span>로 엮어 "5번째 홉에서 3초"를 찾게 해준다.</p><p><strong>조정 대시보드(PG vs 내부 결제 불일치 건수)는 0에 가까워야 정상</strong> — 0이 아니면 정합성 구멍이 실제로 발생하고 있다는 신호. 이 숫자를 '제1의 정합성 헬스 지표'로 다룬다.</p></div>
   </details>
 </section>
 
 <section id="s13">
   <h2><span class="num">13</span>요약</h2>
-  <p>읽기 비중 서비스와 트랜잭션 중심 서비스를 분리한다. 식당 탐색·메뉴는 CDN/Redis/검색 색인으로 최적화. 주문·결제는 강정합성·멱등성을 갖춘 관계형 DB. Kafka가 서비스 결합을 풀고 스파이크를 흡수. 배차는 지역 인덱싱과 비동기 매칭. 부하 하에서 우아하게 강등하면서 가장 중요한 흐름(성공적 주문·배달)을 보호한다.</p>
+  <p>읽기 비중 서비스와 트랜잭션 중심 서비스를 분리합니다. 탐색·메뉴는 CDN/Redis/검색으로 최적화. 주문·결제는 강정합·멱등성을 갖춘 관계형 DB. Kafka가 결합을 풀고 스파이크를 흡수. 배차는 지역 인덱싱과 비동기 매칭. 부하 하에서 우아하게 강등하면서 가장 중요한 흐름(성공적 주문·배달)을 보호합니다.</p>
   <div class="callout tradeoff">
     <div class="label">핵심 트레이드오프</div>
-    <p>주문/결제 워크플로의 정확성·신뢰성을 최우선하고, 검색/추적/추천/알림은 결과적 정합성을 감내한다. 이로써 플랫폼이 스케일하면서도 사용자 신뢰를 유지한다.</p>
+    <p>주문/결제 워크플로의 정확성·신뢰성을 최우선하고, 검색/추적/추천/알림은 결과적 정합성을 감내합니다. 이로써 플랫폼이 스케일하면서도 사용자 신뢰를 유지합니다.</p>
   </div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
-    <div class="deep-body"><p>한 줄로: <strong>읽기 비중 경로는 캐시·검색으로 가용성·속도를, 돈·상태 경로는 ACID·멱등·조정으로 정확성을</strong>. Kafka가 그 둘을 잇고 스파이크를 흡수한다. 핵심은 정확성(결제/주문)과 가용성/속도(탐색/추적)를 도메인별로 분리했다는 점이다 — 이 분할 덕에 대규모에서도 신뢰를 유지한다.</p><p>이 분할이 강제하는 제약들(read-your-writes 비용, 조정 잡, 강중 매트릭스)을 명시적으로 받아들이는 것이 Senior 설계자의 자세다. "선택을 했다"에서 끝나지 않고 "그 선택이 다른 어디서 비용을 만드는지"까지 말하는 것이 Staff다.</p></div>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>한 줄로: <strong>읽기 비중 경로는 캐시·검색으로 가용성·속도를, 돈·상태 경로는 ACID·멱등·조정으로 정확성을</strong>. Kafka가 둘을 잇고 스파이크를 흡수한다. 핵심은 정확성(결제/주문)과 가용성/속도(탐색/추적)를 도메인별로 분리했다는 점이다.</p><p>이 분할이 강제하는 제약(read-your-writes 비용, 조정 잡, 강등 매트릭스)을 명시적으로 받아들이는 것이 Senior 설계자의 자세다. "선택을 했다"에서 끝나지 않고 "그 선택이 다른 어디서 비용을 만드는지"까지 말하는 것이 Staff다 — <span class="inline-mono">PaymentSucceeded</span> 경계가 환불·조정·read-your-writes를 모두 결정한다는 점이 그 연쇄의 결정적 예시다.</p></div>
   </details>
 </section>
 
 <footer class="foot">
   superinterview / SYSTEM-DESIGN model answer - Food Ordering &amp; Delivery. Senior bar.
-  ground-truth reference (verbatim); revealed at Grade only. 비교용이지 유일한 정답이 아니다.
+  본문은 누구나 이해하기 쉽게, '전문가 심화 분석'은 엔지니어 심화용. 비교용이지 유일한 정답이 아니다.
 </footer>
 </main>
 </div>

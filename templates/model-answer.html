@@ -10,9 +10,19 @@
   theme before first paint. Palette is CSS-variable driven on :root; dark overrides live under
   :root[data-theme="dark"]. Callout borders reference --*-border vars so both themes stay correct.
 
-  Detail accordion: each <section> ends with a <details class="deep"> block. The summary is the
-  affordance ("상세 설명"); the .deep-body holds ADDITIVE depth beyond the section's summary
-  (why this dimension matters, how it is measured, edge cases). Fill it per section.
+  READING LEVELS — two layers, by intent (this is a hard rule, not a suggestion):
+    * MAIN body of each <section>  = ACCESSIBLE to anyone. Short sentences, everyday Korean,
+      analogies. Explain the system in plain words a non-engineer can follow. Gloss jargon the
+      first time it appears (e.g. "ACID(거래가 안전하게 끝나도록 보장하는 규칙)"). Keep diagrams,
+      tables, metric tiles — visuals are accessible. The staff-signal meta-reasoning and the hard
+      tradeoffs do NOT belong here; they go in the accordion.
+    * DETAIL accordion (.deep-body, revealed on click) = ADVANCED / professional depth. This is
+      where the engineering rigor lives: the real tradeoffs (CAP, idempotency races, consistency
+      boundaries), quantitative reasoning (shard sizing, capacity derivation), failure paths and
+      reconciliation, and the Staff meta-signals (why this boundary, what it forces elsewhere).
+      Assume a senior engineer reader. Use formal terminology freely here.
+  Think of it as: main = "이 시스템이 뭘 하고 왜 그렇게 짜였나" in plain language;
+  accordion = "엔지니어로서 깊이 파고들면 무엇이 중요한가". Keep both for every section.
 
   Required sections map 1:1 to the 10-dimension rubric (reference/system-design-rubric.md):
   01 Requirements | 02 Capacity | 03 Architecture | 04 Core flow | 05 Data model
@@ -194,7 +204,7 @@
   <ul><li>{{availability / latency / consistency / spikes}}</li></ul>
   <!-- OPTIONAL staff callout: ambiguity-navigation signal -->
   <div class="callout staff"><div class="label">Staff signal</div><p>{{what ambiguity to surface first}}</p></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: why splitting these requirements matters, what each NFR is measured against, what gets deprioritized and why}}</p></div>
   </details>
 </section>
@@ -207,7 +217,7 @@
   </div>
   <div class="callout capacity"><div class="label">저장 추정</div><ul><li>{{storage}}</li></ul></div>
   <p>{{conclusion: which path is dominant}}</p>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: derivation steps, which load is hidden (e.g. GPS write load), why shard-from-day-1 reasoning}}</p></div>
   </details>
 </section>
@@ -217,7 +227,7 @@
   <h2><span class="num">03</span>전체 아키텍처</h2>
   <div class="diagram"><!-- .node .arrow .layer-label blocks --></div>
   <p>{{read vs write separation rationale}}</p>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: why these service boundaries - differing scale patterns & failure modes; what the gateway isolates}}</p></div>
   </details>
 </section>
@@ -227,7 +237,7 @@
   <h2><span class="num">04</span>핵심 플로우</h2>
   <h3>{{write path}}</h3><ol><li>{{...}}</li></ol>
   <h3>{{read path}}</h3><ol><li>{{...}}</li></ol>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: where the sync cut is drawn and why; what consistency hole that cut opens and how it is closed}}</p></div>
   </details>
 </section>
@@ -236,7 +246,7 @@
 <section id="s5">
   <h2><span class="num">05</span>데이터 모델</h2>
   <div class="schema"><!-- .table-card --></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: snapshot fields (price-at-order-time), unique constraints as physical safety nets, id encoding for sort+partition}}</p></div>
   </details>
 </section>
@@ -247,7 +257,7 @@
   <div class="cmp"><div class="col push"><h4><span class="dot"></span>{{option A}}</h4><ul><li>{{...}}</li></ul></div>
   <div class="col pull"><h4><span class="dot"></span>{{option B}}</h4><ul><li>{{...}}</li></ul></div></div>
   <div class="callout tradeoff"><div class="label">트레이드오프</div><p>{{why this boundary / what it constrains}}</p></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: the hybrid rationale, where the crossover threshold lives, that it is a tunable knob observed over time}}</p></div>
   </details>
 </section>
@@ -256,7 +266,7 @@
 <section id="s7">
   <h2><span class="num">07</span>{{hot-path / celebrity problem}}</h2>
   <div class="callout fail"><div class="label">완화책</div><ul><li>{{...}}</li></ul></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: why the hot-key cascades, and the principle: protect core, degrade non-core via pre-built feature flags}}</p></div>
   </details>
 </section>
@@ -266,7 +276,7 @@
   <h2><span class="num">08</span>스케일 &amp; 병목</h2>
   <ul><li><strong>{{bottleneck}}</strong> → {{mitigation}}</li></ul>
   <div class="callout staff"><div class="label">Staff signal - 병목의 이동</div><p>{{how fixing one moves the bottleneck}}</p></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: the bottleneck-moves insight with a concrete example chain}}</p></div>
   </details>
 </section>
@@ -276,7 +286,7 @@
   <h2><span class="num">09</span>정합성 &amp; 장애 처리</h2>
   <div class="callout fail"><div class="label">장애 시나리오</div><ul><li>{{...}}</li></ul></div>
   <div class="callout staff"><div class="label">Staff signal - 정합성 경계</div><p>{{where the consistency boundary is drawn and why}}</p></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: the authoritative-source pattern, what idempotency keys physically prevent, why reconciliation is the last net not the first}}</p></div>
   </details>
 </section>
@@ -285,7 +295,7 @@
 <section id="s10">
   <h2><span class="num">10</span>트레이드오프 분석</h2>
   <ul><li><strong>{{axis}}</strong>: {{choice + why}}</li></ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: monolith-vs-microservices real cost reasoning tied to current scale}}</p></div>
   </details>
 </section>
@@ -294,7 +304,7 @@
 <section id="s11">
   <h2><span class="num">11</span>관측가능성 &amp; 운영</h2>
   <ul><li><strong>지표</strong>: {{p50/p95/p99, lag, hit-rate}}</li></ul>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: business-SLO metrics outrank p99; what the reconciliation dashboard being non-zero means}}</p></div>
   </details>
 </section>
@@ -304,7 +314,7 @@
   <h2><span class="num">12</span>요약</h2>
   <p>{{core decision + why + cross-system constraint}}</p>
   <div class="callout tradeoff"><div class="label">한 줄 정합성 입장</div><p>{{per-domain consistency in one line}}</p></div>
-  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+  <details class="deep"><summary>전문가 심화 분석 <span class="chev">&#9656;</span></summary>
     <div class="deep-body"><p>{{DEEPER: the one decision that mattered, and how it forces constraints elsewhere}}</p></div>
   </details>
 </section>
