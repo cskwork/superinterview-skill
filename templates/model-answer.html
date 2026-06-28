@@ -5,6 +5,15 @@
   A model answer is ALWAYS generated as a standalone self-contained HTML file (inline CSS, no
   external deps) so it renders anywhere and is revealed at Grade as a polished artifact.
 
+  Theme: LIGHT is the default. A floating toggle (bottom-right) switches to dark and persists the
+  choice in localStorage ('si-theme'). The anti-FOUC inline script in <head> applies the stored
+  theme before first paint. Palette is CSS-variable driven on :root; dark overrides live under
+  :root[data-theme="dark"]. Callout borders reference --*-border vars so both themes stay correct.
+
+  Detail accordion: each <section> ends with a <details class="deep"> block. The summary is the
+  affordance ("상세 설명"); the .deep-body holds ADDITIVE depth beyond the section's summary
+  (why this dimension matters, how it is measured, edge cases). Fill it per section.
+
   Required sections map 1:1 to the 10-dimension rubric (reference/system-design-rubric.md):
   01 Requirements | 02 Capacity | 03 Architecture | 04 Core flow | 05 Data model
   06 Deep dive | 07 Hot-path/bottleneck | 08 Scalability | 09 Consistency & failure
@@ -18,22 +27,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <title>System Design Model Answer - {{TITLE}}</title>
+<script>(function(){try{var t=localStorage.getItem('si-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{
+    /* light = default */
+    --bg:#ffffff; --surface:#f6f8fa; --surface-2:#eaeef2; --border:#d0d7de;
+    --text:#1f2328; --text-dim:#59636e; --text-mute:#8c959f;
+    --accent:#0969da; --accent-soft:#ddf4ff; --accent-border:rgba(9,105,218,.4);
+    --green:#1a7f37; --green-soft:#dafbe1; --green-border:rgba(26,127,55,.4);
+    --amber:#9a6700; --amber-soft:#fff8c5; --amber-border:rgba(154,103,0,.4);
+    --red:#cf222e; --red-soft:#ffebe9; --red-border:rgba(207,34,46,.4);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    color-scheme:light;
+  }
+  :root[data-theme="dark"]{
     --bg:#0f1419; --surface:#161b22; --surface-2:#1c232c; --border:#2a3340;
     --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#6b7785;
-    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14);
-    --green:#3fb950; --green-soft:rgba(63,185,80,.13);
-    --amber:#d29922; --amber-soft:rgba(210,153,34,.13);
-    --red:#f85149; --red-soft:rgba(248,81,73,.12);
-    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14); --accent-border:rgba(59,130,246,.3);
+    --green:#3fb950; --green-soft:rgba(63,185,80,.13); --green-border:rgba(63,185,80,.3);
+    --amber:#d29922; --amber-soft:rgba(210,153,34,.13); --amber-border:rgba(210,153,34,.3);
+    --red:#f85149; --red-soft:rgba(248,81,73,.12); --red-border:rgba(248,81,73,.25);
+    color-scheme:dark;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',Roboto,sans-serif;
-    line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased;}
+    line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased;
+    transition:background .2s ease,color .2s ease;}
   .layout{display:flex;max-width:1180px;margin:0 auto}
   nav.toc{position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;flex:0 0 240px;
     padding:32px 20px;border-right:1px solid var(--border);font-size:13.5px;}
@@ -68,10 +91,10 @@
   .inline-mono{font-family:var(--mono);font-size:13px;color:var(--text)}
   .callout{border-radius:10px;padding:18px 20px;margin:18px 0;border:1px solid var(--border);background:var(--surface)}
   .callout .label{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;font-weight:600}
-  .callout.capacity{border-color:rgba(59,130,246,.3);background:var(--accent-soft)}.callout.capacity .label{color:var(--accent)}
-  .callout.tradeoff{border-color:rgba(210,153,34,.3);background:var(--amber-soft)}.callout.tradeoff .label{color:var(--amber)}
-  .callout.staff{border-color:rgba(63,185,80,.3);background:var(--green-soft)}.callout.staff .label{color:var(--green)}
-  .callout.fail{border-color:rgba(248,81,73,.25);background:var(--red-soft)}.callout.fail .label{color:var(--red)}
+  .callout.capacity{border-color:var(--accent-border);background:var(--accent-soft)}.callout.capacity .label{color:var(--accent)}
+  .callout.tradeoff{border-color:var(--amber-border);background:var(--amber-soft)}.callout.tradeoff .label{color:var(--amber)}
+  .callout.staff{border-color:var(--green-border);background:var(--green-soft)}.callout.staff .label{color:var(--green)}
+  .callout.fail{border-color:var(--red-border);background:var(--red-soft)}.callout.fail .label{color:var(--red)}
   .callout p:last-child,.callout li:last-child{margin-bottom:0}.callout ul{margin-bottom:0}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
   .metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
@@ -94,9 +117,36 @@
   .schema{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
   .table-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
   .table-card .tname{font-family:var(--mono);font-size:13px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--accent);font-weight:600}
-  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid rgba(42,51,64,.5)}
+  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid var(--surface-2)}
   .table-card .field:last-child{border-bottom:none}
   .table-card .field .pk{color:var(--green)}.table-card .field .idx{color:var(--amber)}
+  /* detail accordion */
+  details.deep{margin-top:22px;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}
+  details.deep > summary{list-style:none;cursor:pointer;padding:12px 18px;font-family:var(--mono);
+    font-size:12.5px;letter-spacing:.04em;color:var(--text-dim);display:flex;align-items:center;
+    justify-content:space-between;user-select:none;transition:color .15s,background .15s}
+  details.deep > summary::-webkit-details-marker{display:none}
+  details.deep > summary::marker{content:''}
+  details.deep > summary:hover{color:var(--text);background:var(--surface-2)}
+  details.deep[open] > summary{color:var(--accent);border-bottom:1px solid var(--border);background:var(--surface-2)}
+  details.deep .chev{transition:transform .2s ease;color:var(--text-mute);font-family:var(--mono)}
+  details.deep[open] .chev{transform:rotate(90deg);color:var(--accent)}
+  .deep-body{padding:16px 20px}
+  .deep-body p{color:var(--text-dim)}
+  .deep-body p:last-child{margin-bottom:0}
+  .deep-body ul{margin:8px 0 0}
+  /* theme toggle */
+  .theme-toggle{position:fixed;right:22px;bottom:22px;z-index:50;display:inline-flex;
+    align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
+    font-weight:600;padding:9px 14px;border-radius:999px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text-dim);box-shadow:0 4px 14px rgba(0,0,0,.10);
+    transition:color .15s,border-color .15s,transform .12s}
+  .theme-toggle:hover{color:var(--text);border-color:var(--accent);transform:translateY(-1px)}
+  .theme-toggle:active{transform:translateY(0)}
+  .theme-toggle .icon{width:16px;height:16px;display:none}
+  .theme-toggle .icon svg{width:16px;height:16px;display:block}
+  :root:not([data-theme="dark"]) .theme-toggle .icon-moon{display:inline-flex}
+  :root[data-theme="dark"] .theme-toggle .icon-sun{display:inline-flex}
   footer.foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-mute)}
   @media (max-width:920px){.layout{flex-direction:column}nav.toc{position:relative;height:auto;flex:none;border-right:none;border-bottom:1px solid var(--border);padding:20px}main{padding:32px 22px 80px}.cmp{grid-template-columns:1fr}}
 </style>
@@ -144,6 +194,9 @@
   <ul><li>{{availability / latency / consistency / spikes}}</li></ul>
   <!-- OPTIONAL staff callout: ambiguity-navigation signal -->
   <div class="callout staff"><div class="label">Staff signal</div><p>{{what ambiguity to surface first}}</p></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: why splitting these requirements matters, what each NFR is measured against, what gets deprioritized and why}}</p></div>
+  </details>
 </section>
 
 <!-- 02 CAPACITY: back-of-envelope. Capture the read:write asymmetry - it drives the design. -->
@@ -154,6 +207,9 @@
   </div>
   <div class="callout capacity"><div class="label">저장 추정</div><ul><li>{{storage}}</li></ul></div>
   <p>{{conclusion: which path is dominant}}</p>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: derivation steps, which load is hidden (e.g. GPS write load), why shard-from-day-1 reasoning}}</p></div>
+  </details>
 </section>
 
 <!-- 03 ARCHITECTURE: separate read path from write path. Diagram in .diagram blocks. -->
@@ -161,6 +217,9 @@
   <h2><span class="num">03</span>전체 아키텍처</h2>
   <div class="diagram"><!-- .node .arrow .layer-label blocks --></div>
   <p>{{read vs write separation rationale}}</p>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: why these service boundaries - differing scale patterns & failure modes; what the gateway isolates}}</p></div>
+  </details>
 </section>
 
 <!-- 04 CORE FLOW: the happy path, step by step. Mark where sync ends and async begins. -->
@@ -168,12 +227,18 @@
   <h2><span class="num">04</span>핵심 플로우</h2>
   <h3>{{write path}}</h3><ol><li>{{...}}</li></ol>
   <h3>{{read path}}</h3><ol><li>{{...}}</li></ol>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: where the sync cut is drawn and why; what consistency hole that cut opens and how it is closed}}</p></div>
+  </details>
 </section>
 
 <!-- 05 DATA MODEL: tables, indexes, the right store per domain. State machine if applicable. -->
 <section id="s5">
   <h2><span class="num">05</span>데이터 모델</h2>
   <div class="schema"><!-- .table-card --></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: snapshot fields (price-at-order-time), unique constraints as physical safety nets, id encoding for sort+partition}}</p></div>
+  </details>
 </section>
 
 <!-- 06 DEEP DIVE: THE central tradeoff/mechanism. This is where senior vs staff separates. -->
@@ -182,12 +247,18 @@
   <div class="cmp"><div class="col push"><h4><span class="dot"></span>{{option A}}</h4><ul><li>{{...}}</li></ul></div>
   <div class="col pull"><h4><span class="dot"></span>{{option B}}</h4><ul><li>{{...}}</li></ul></div></div>
   <div class="callout tradeoff"><div class="label">트레이드오프</div><p>{{why this boundary / what it constrains}}</p></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: the hybrid rationale, where the crossover threshold lives, that it is a tunable knob observed over time}}</p></div>
+  </details>
 </section>
 
 <!-- 07 HOT PATH: the worst-case load (celebrity, spike, hot-key) and mitigation. -->
 <section id="s7">
   <h2><span class="num">07</span>{{hot-path / celebrity problem}}</h2>
   <div class="callout fail"><div class="label">완화책</div><ul><li>{{...}}</li></ul></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: why the hot-key cascades, and the principle: protect core, degrade non-core via pre-built feature flags}}</p></div>
+  </details>
 </section>
 
 <!-- 08 SCALABILITY: top bottlenecks mapped to mitigations. Note bottlenecks MOVE, not vanish. -->
@@ -195,6 +266,9 @@
   <h2><span class="num">08</span>스케일 &amp; 병목</h2>
   <ul><li><strong>{{bottleneck}}</strong> → {{mitigation}}</li></ul>
   <div class="callout staff"><div class="label">Staff signal - 병목의 이동</div><p>{{how fixing one moves the bottleneck}}</p></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: the bottleneck-moves insight with a concrete example chain}}</p></div>
+  </details>
 </section>
 
 <!-- 09 CONSISTENCY & FAILURE: consistency model per domain + failure paths. Most-thinned dimension. -->
@@ -202,18 +276,27 @@
   <h2><span class="num">09</span>정합성 &amp; 장애 처리</h2>
   <div class="callout fail"><div class="label">장애 시나리오</div><ul><li>{{...}}</li></ul></div>
   <div class="callout staff"><div class="label">Staff signal - 정합성 경계</div><p>{{where the consistency boundary is drawn and why}}</p></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: the authoritative-source pattern, what idempotency keys physically prevent, why reconciliation is the last net not the first}}</p></div>
+  </details>
 </section>
 
 <!-- 10 TRADE-OFFS: explicit C-vs-A, latency-vs-reliability, cost reasoning. -->
 <section id="s10">
   <h2><span class="num">10</span>트레이드오프 분석</h2>
   <ul><li><strong>{{axis}}</strong>: {{choice + why}}</li></ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: monolith-vs-microservices real cost reasoning tied to current scale}}</p></div>
+  </details>
 </section>
 
 <!-- 11 OBSERVABILITY: metrics that matter, tracing, alerting, feature flags. -->
 <section id="s11">
   <h2><span class="num">11</span>관측가능성 &amp; 운영</h2>
   <ul><li><strong>지표</strong>: {{p50/p95/p99, lag, hit-rate}}</li></ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: business-SLO metrics outrank p99; what the reconciliation dashboard being non-zero means}}</p></div>
+  </details>
 </section>
 
 <!-- 12 SUMMARY: the one decision that mattered, restated. -->
@@ -221,6 +304,9 @@
   <h2><span class="num">12</span>요약</h2>
   <p>{{core decision + why + cross-system constraint}}</p>
   <div class="callout tradeoff"><div class="label">한 줄 정합성 입장</div><p>{{per-domain consistency in one line}}</p></div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>{{DEEPER: the one decision that mattered, and how it forces constraints elsewhere}}</p></div>
+  </details>
 </section>
 
 <footer class="foot">
@@ -229,11 +315,31 @@
 </footer>
 </main>
 </div>
+<button class="theme-toggle" type="button" aria-label="Toggle color theme" title="색상 테마 전환">
+  <span class="icon icon-moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+  <span class="icon icon-sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+  <span class="label">Dark</span>
+</button>
 <script>
-  const links=[...document.querySelectorAll('nav.toc a')];
-  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
-  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const m=links.find(l=>l.getAttribute('href')==='#'+e.target.id);if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
-  secs.forEach(s=>s&&obs.observe(s));
+  // theme toggle (default light; persists in localStorage 'si-theme'; anti-FOUC set in <head>)
+  (function(){
+    var root=document.documentElement,KEY='si-theme';
+    var btn=document.querySelector('.theme-toggle');
+    var label=btn&&btn.querySelector('.label');
+    function sync(){var dark=root.getAttribute('data-theme')==='dark';if(label)label.textContent=dark?'Light':'Dark';}
+    if(btn)btn.addEventListener('click',function(){
+      var dark=root.getAttribute('data-theme')==='dark';
+      if(dark){root.removeAttribute('data-theme');try{localStorage.setItem(KEY,'light')}catch(e){}}
+      else{root.setAttribute('data-theme','dark');try{localStorage.setItem(KEY,'dark')}catch(e){}}
+      sync();
+    });
+    sync();
+  })();
+  // active TOC highlight on scroll
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))});
+  var obs=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(l){l.classList.remove('active')});var m=links.find(function(l){return l.getAttribute('href')==='#'+e.target.id});if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(function(s){if(s)obs.observe(s)});
 </script>
 </body>
 </html>

@@ -3,48 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <title>System Design Model Answer - Twitter News Feed</title>
+<script>(function(){try{var t=localStorage.getItem('si-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{
+    --bg:#ffffff; --surface:#f6f8fa; --surface-2:#eaeef2; --border:#d0d7de;
+    --text:#1f2328; --text-dim:#59636e; --text-mute:#8c959f;
+    --accent:#0969da; --accent-soft:#ddf4ff; --accent-border:rgba(9,105,218,.4);
+    --green:#1a7f37; --green-soft:#dafbe1; --green-border:rgba(26,127,55,.4);
+    --amber:#9a6700; --amber-soft:#fff8c5; --amber-border:rgba(154,103,0,.4);
+    --red:#cf222e; --red-soft:#ffebe9; --red-border:rgba(207,34,46,.4);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    color-scheme:light;
+  }
+  :root[data-theme="dark"]{
     --bg:#0f1419; --surface:#161b22; --surface-2:#1c232c; --border:#2a3340;
     --text:#e6edf3; --text-dim:#9aa7b4; --text-mute:#6b7785;
-    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14);
-    --green:#3fb950; --green-soft:rgba(63,185,80,.13);
-    --amber:#d29922; --amber-soft:rgba(210,153,34,.13);
-    --red:#f85149; --red-soft:rgba(248,81,73,.12);
-    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --accent:#3b82f6; --accent-soft:rgba(59,130,246,.14); --accent-border:rgba(59,130,246,.3);
+    --green:#3fb950; --green-soft:rgba(63,185,80,.13); --green-border:rgba(63,185,80,.3);
+    --amber:#d29922; --amber-soft:rgba(210,153,34,.13); --amber-border:rgba(210,153,34,.3);
+    --red:#f85149; --red-soft:rgba(248,81,73,.12); --red-border:rgba(248,81,73,.25);
+    color-scheme:dark;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{
-    background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',Roboto,'Helvetica Neue',Arial,sans-serif;
-    line-height:1.7;font-size:16px;
-    -webkit-font-smoothing:antialiased;
-  }
+  body{background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',Roboto,sans-serif;
+    line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased;
+    transition:background .2s ease,color .2s ease;}
   .layout{display:flex;max-width:1180px;margin:0 auto;gap:0}
-  /* sidebar */
-  nav.toc{
-    position:sticky;top:0;align-self:flex-start;
-    height:100vh;overflow-y:auto;flex:0 0 240px;
-    padding:32px 20px;border-right:1px solid var(--border);
-    font-size:13.5px;
-  }
+  nav.toc{position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;flex:0 0 240px;
+    padding:32px 20px;border-right:1px solid var(--border);font-size:13.5px;}
   nav.toc .brand{font-weight:700;font-size:14px;letter-spacing:.02em;margin-bottom:4px;color:var(--text)}
   nav.toc .brand .sig{color:var(--accent)}
   nav.toc .meta{font-size:11.5px;color:var(--text-mute);margin-bottom:24px;line-height:1.5}
   nav.toc ol{list-style:none;counter-reset:sec}
   nav.toc ol li{counter-increment:sec}
-  nav.toc ol li a{
-    display:block;color:var(--text-dim);text-decoration:none;
-    padding:5px 0 5px 26px;position:relative;border-radius:6px;
-    transition:color .15s,background .15s;
-  }
+  nav.toc ol li a{display:block;color:var(--text-dim);text-decoration:none;padding:5px 0 5px 26px;
+    position:relative;border-radius:6px;transition:color .15s,background .15s;}
   nav.toc ol li a::before{content:counter(sec,decimal-leading-zero);position:absolute;left:0;color:var(--text-mute);font-family:var(--mono);font-size:11px}
   nav.toc ol li a:hover{color:var(--text);background:var(--surface)}
   nav.toc ol li a.active{color:var(--accent);font-weight:600}
   nav.toc .tag{display:inline-block;font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:4px;margin-top:18px;margin-bottom:4px;background:var(--amber-soft);color:var(--amber)}
-  /* main */
   main{flex:1;min-width:0;padding:48px 56px 120px;max-width:860px}
   header.title{margin-bottom:44px;padding-bottom:28px;border-bottom:1px solid var(--border)}
   header.title .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
@@ -53,49 +54,34 @@
   header.title .pills{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
   .pill{font-family:var(--mono);font-size:11.5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text-dim);background:var(--surface)}
   .pill.hot{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
-
   section{margin-bottom:56px;scroll-margin-top:24px}
   section h2{display:flex;align-items:baseline;gap:14px;font-size:23px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border)}
   section h2 .num{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:600}
   section h3{font-size:16px;font-weight:700;color:var(--text);margin:22px 0 10px}
   p{margin-bottom:14px;color:var(--text-dim)}
-  p strong, li strong{color:var(--text);font-weight:600}
+  p strong,li strong{color:var(--text);font-weight:600}
   ul,ol{margin:0 0 16px 4px;padding-left:22px}
   li{margin-bottom:7px;color:var(--text-dim)}
   li::marker{color:var(--text-mute)}
   code{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:1.5px 6px;border-radius:4px;color:var(--accent)}
   .inline-mono{font-family:var(--mono);font-size:13px;color:var(--text)}
-
-  /* callouts */
   .callout{border-radius:10px;padding:18px 20px;margin:18px 0;border:1px solid var(--border);background:var(--surface)}
   .callout .label{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;font-weight:600}
-  .callout.capacity{border-color:rgba(59,130,246,.3);background:var(--accent-soft)}
-  .callout.capacity .label{color:var(--accent)}
-  .callout.tradeoff{border-color:rgba(210,153,34,.3);background:var(--amber-soft)}
-  .callout.tradeoff .label{color:var(--amber)}
-  .callout.staff{border-color:rgba(63,185,80,.3);background:var(--green-soft)}
-  .callout.staff .label{color:var(--green)}
-  .callout.fail{border-color:rgba(248,81,73,.25);background:var(--red-soft)}
-  .callout.fail .label{color:var(--red)}
-  .callout p:last-child,.callout li:last-child{margin-bottom:0}
-  .callout ul{margin-bottom:0}
-
-  /* metric grid */
+  .callout.capacity{border-color:var(--accent-border);background:var(--accent-soft)}.callout.capacity .label{color:var(--accent)}
+  .callout.tradeoff{border-color:var(--amber-border);background:var(--amber-soft)}.callout.tradeoff .label{color:var(--amber)}
+  .callout.staff{border-color:var(--green-border);background:var(--green-soft)}.callout.staff .label{color:var(--green)}
+  .callout.fail{border-color:var(--red-border);background:var(--red-soft)}.callout.fail .label{color:var(--red)}
+  .callout p:last-child,.callout li:last-child{margin-bottom:0}.callout ul{margin-bottom:0}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
   .metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
   .metric .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
   .metric .k{font-size:12px;color:var(--text-mute);margin-top:4px;line-height:1.4}
-
-  /* comparison table */
   .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
   .cmp .col{border:1px solid var(--border);border-radius:12px;padding:18px 20px;background:var(--surface)}
   .cmp .col h4{font-family:var(--mono);font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-  .cmp .col.push h4{color:var(--green)}
-  .cmp .col.pull h4{color:var(--amber)}
+  .cmp .col.push h4{color:var(--green)}.cmp .col.pull h4{color:var(--amber)}
   .cmp .col h4 .dot{width:9px;height:9px;border-radius:50%;background:currentColor;display:inline-block}
   .cmp .col ul{padding-left:18px;font-size:14px}
-
-  /* architecture diagram */
   .diagram{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:18px 0;font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--text-dim);overflow-x:auto}
   .diagram .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
   .node{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:7px 13px;background:var(--surface-2);color:var(--text);white-space:nowrap}
@@ -104,30 +90,40 @@
   .node.amber{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
   .arrow{color:var(--text-mute)}
   .diagram .layer-label{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;text-align:center}
-
-  /* schema */
   .schema{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
   .table-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
   .table-card .tname{font-family:var(--mono);font-size:13px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--accent);font-weight:600}
-  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid rgba(42,51,64,.5)}
+  .table-card .field{font-family:var(--mono);font-size:12px;padding:4px 14px;color:var(--text-dim);border-bottom:1px solid var(--surface-2)}
   .table-card .field:last-child{border-bottom:none}
-  .table-card .field .pk{color:var(--green)}
-  .table-card .field .idx{color:var(--amber)}
-
-  /* state machine */
-  .flow{font-family:var(--mono);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin:18px 0;color:var(--text-dim);line-height:2;overflow-x:auto}
-  .flow .step{color:var(--accent)}
-  .flow .fail{color:var(--red)}
-
+  .table-card .field .pk{color:var(--green)}.table-card .field .idx{color:var(--amber)}
+  details.deep{margin-top:22px;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}
+  details.deep > summary{list-style:none;cursor:pointer;padding:12px 18px;font-family:var(--mono);
+    font-size:12.5px;letter-spacing:.04em;color:var(--text-dim);display:flex;align-items:center;
+    justify-content:space-between;user-select:none;transition:color .15s,background .15s}
+  details.deep > summary::-webkit-details-marker{display:none}
+  details.deep > summary::marker{content:''}
+  details.deep > summary:hover{color:var(--text);background:var(--surface-2)}
+  details.deep[open] > summary{color:var(--accent);border-bottom:1px solid var(--border);background:var(--surface-2)}
+  details.deep .chev{transition:transform .2s ease;color:var(--text-mute);font-family:var(--mono)}
+  details.deep[open] .chev{transform:rotate(90deg);color:var(--accent)}
+  .deep-body{padding:16px 20px}
+  .deep-body p{color:var(--text-dim)}
+  .deep-body p:last-child{margin-bottom:0}
+  .deep-body ul{margin:8px 0 0}
+  .theme-toggle{position:fixed;right:22px;bottom:22px;z-index:50;display:inline-flex;
+    align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
+    font-weight:600;padding:9px 14px;border-radius:999px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text-dim);box-shadow:0 4px 14px rgba(0,0,0,.10);
+    transition:color .15s,border-color .15s,transform .12s}
+  .theme-toggle:hover{color:var(--text);border-color:var(--accent);transform:translateY(-1px)}
+  .theme-toggle:active{transform:translateY(0)}
+  .theme-toggle .icon{width:16px;height:16px;display:none}
+  .theme-toggle .icon svg{width:16px;height:16px;display:block}
+  :root:not([data-theme="dark"]) .theme-toggle .icon-moon{display:inline-flex}
+  :root[data-theme="dark"] .theme-toggle .icon-sun{display:inline-flex}
   footer.foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-mute)}
   footer.foot a{color:var(--accent);text-decoration:none}
-
-  @media (max-width:920px){
-    .layout{flex-direction:column}
-    nav.toc{position:relative;height:auto;flex:none;border-right:none;border-bottom:1px solid var(--border);padding:20px}
-    main{padding:32px 22px 80px}
-    .cmp{grid-template-columns:1fr}
-  }
+  @media (max-width:920px){.layout{flex-direction:column}nav.toc{position:relative;height:auto;flex:none;border-right:none;border-bottom:1px solid var(--border);padding:20px}main{padding:32px 22px 80px}.cmp{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -188,6 +184,9 @@
     <div class="label">Staff signal - 모호성 탐색</div>
     <p>문제를 받자마자 "정렬 기준이 시간인가 관련도인가?", "최근 N개만인가 무한 스크롤인가?", "미디어는 범위 안인가?"를 묻는다. 이 질문들이 정렬/랭킹 서비스를 넣을지 말지, 그리고 팬아웃 비용을 결정한다. 묻지 않고 바로 박스를 그리면 Staff 바에서 점수가 깎인다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>이 모호성 질문들은 우아함이 아니라 <strong>설계 분기점</strong>이다. "정렬이 관련도"라면 단순 시간 역순 리스트 대신 랭킹 서비스(임베딩·피드 모델)가 필요해져 아키텍처가 완전히 달라진다. "무한 스크롤"이면 타임라인 캐시 용량이 커지고, "최근 N개"면 Redis LIST + LTRIM으로 통제된다.</p><p>범위 밖(알림·검색·트렌드)을 명시하는 것은 그 자체로 설계 능력이다 — "모든 것을 다 만들겠다"는 답은 오히려 깎인다. 45분 안에 깊이 있게 설계하려면 하나의 핵심 흐름(게시→팬아웃→읽기)에 에너지를 집중해야 하고, 그 집중의 전제가 범위 설정이다.</p></div>
+  </details>
 </section>
 
 <section id="s2">
@@ -208,6 +207,9 @@
     </ul>
   </div>
   <p><strong>결론:</strong> 압도적으로 읽기가 많다 → 읽기 경로를 O(1)로 만드는 쪽(사전 계산)이 자연스럽다. 하지만 그 비용이 어디로 가는지가 6번의 핵심이다.</p>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>100:1이라는 비율이 <strong>fan-out 전략을 강제한다</strong>는 논리를 명시하는 것이 핵심이다. 읽기가 100배 많으면, "읽기 시마다 계산"(pull)보다 "쓰기 1회당 읽기 100회를 O(1)로 미리 만들어 두는"(push) 쪽이 총 비용이 낮다 — 그래서 타임라인 사전 계산이 자연스러운 출발점이다.</p><p>하지만 같은 100:1이라도 <strong>셀럽 한 명의 팬아웃 비용</strong>은 일반 사용자의 수백~수만 배다(팔로워 1억 = 단일 트윗이 1억 번 쓰기). 평균 비율만 보면 이 특이점이 안 보인다 — 용량 추정의 진짜 가치는 "평균이 아닌 극단"을 드러내는 데 있다. 그래서 셀럽 문제(7번)가 별도 차원으로 등장한다.</p></div>
+  </details>
 </section>
 
 <section id="s3">
@@ -245,6 +247,9 @@
     </div>
   </div>
   <p>핵심 분리: <code>Tweet Service</code>는 트윗을 영속화하고 이벤트만 발행한다. <strong>타임라인은 Redis에 사전 계산된 리스트</strong>이고 <code>Timeline Service</code>는 그것을 읽기만 한다. 셀럽 트윗은 사전 계산에서 빼고 읽기 시 병합한다(7번).</p>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>왜 읽기/쓰기 경로를 서로 다른 서비스로 분리하는가 — <strong>스케일링 단위가 다르기 때문</strong>이다. 읽기(200k QPS 피크)는 stateless Timeline Service 인스턴스를 무한히 복제하면 되지만, 쓰기(fan-out worker)는 팔로워 수에 비례하는 CPU/메모리 작업이라 인스턴스 증설이 곧 처리량이다. 이 둘을 한 서비스에 묶으면 읽기 스파이크가 fan-out worker를 굶겨 타임라인 갱신이 밀린다.</p><p>Tweet Service가 "영속 + 이벤트 발행"만 하고 타임라인을 직접 건드리지 않는 것은 <strong>결합도 분리</strong>다 — fan-out이 실패해도 트윗 자체는 안전하고, fan-out 만료를 재처리해도 Tweet Service는 영향받지 않는다. 이 분리 덕에 정합성 경계(9번)를 긋기 쉬워진다.</p></div>
+  </details>
 </section>
 
 <section id="s4">
@@ -267,6 +272,9 @@
     <div class="label">Staff signal - 제약의 연쇄</div>
     <p>"쓰기를 비동기로 끝내고 200 OK를 먼저 준다"는 선택이 <strong>read-your-writes를 깰 수 있다</strong>는 제약을 만든다. 그래서 게시 직후엔 클라이언트가 자기 피드를 열 때 내 트윗을 optimistic하게 맨 위에 끼워 넣거나, fan-out을 내 타임라인만 동기로 먼저 처리한다. 한 선택이 다른 곳의 요구사항을 강제한다는 것을 보여주는 것이 Staff 답변이다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>"게시 직후 200 OK를 주고 fan-out은 비동기"라는 선택은 빠른 응답을 주지만 <strong>read-your-writes를 깬다</strong> — 방금 올린 트윗이 내 피드에 안 보일 수 있다. 사용자는 이를 버그로 느낀다. 해결책은 (a) 클라이언트가 올린 트윗을 optimistic하게 피드 맨 위에 끼워 넣거나, (b) fan-out을 "내 타임라인만" 동기로 먼저 쓰고 나머지는 비동기.</p><p>이것은 <strong>"동기 종결점을 어디로 정하느냐가 다른 요구사항을 강제한다"</strong>는 전형적인 사례다. 응답성을 택하면 read-your-writes 비용이 생기고, read-your-writes를 택하면 응답 지연이 커진다. Staff는 이 교환을 인식하고 둘 다 답을 가진다 — 여기선 (b)가 더 견고하다.</p></div>
+  </details>
 </section>
 
 <section id="s5">
@@ -298,6 +306,9 @@
     <div class="label" style="color:var(--text-dim)">구현 메모</div>
     <p>타임라인은 Redis <span class="inline-mono">LIST</span> (LPUSH + LTRIM 0 799) 또는 <span class="inline-mono">ZSET</span> (score=timestamp). ZSET이 정렬·병합에 유리하지만 메모리가 더 든다. 최근 N개만 보관하므로 용량은 통제된다. <strong>tweet_id에 timestamp를 인코딩</strong> (Snowflake)하면 정렬키가 자연스럽고 시간 기반 샤딩도 된다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><strong>Snowflake ID</strong>는 (timestamp | worker_id | sequence)를 비트로 인코딩한다. 한 필드로 정렬 키 + 분산 생성(중앙 할당 불필요) + 시간 기반 보관/삭제(오래된 tweet_id 범위 삭제)를 모두 해결한다 — 트위터가 실제로 쓰는 패턴이다.</p><p>LIST vs ZSET의 선택은 <strong>병합 필요성</strong>에 달린다. 셀럽 트윗을 읽기 시 병합해야 하면, 그 트윗들을 점수(시간)순으로 끼워 넣어야 하므로 ZSET이 자연스럽다. 반면 일반 사용자 타임라인만 쓰면 LIST + LTRIM이 더 가볍다. "최근 800개" cap은 Redis 메모리를 상한 없이 두면 300M 사용자×팔로우 수로 폭발하기 때문이다 — cap을 둬야 2TB 선에서 통제된다.</p></div>
+  </details>
 </section>
 
 <section id="s6">
@@ -334,6 +345,9 @@
     <div class="label">트레이드오프 - 왜 이 경계인가</div>
     <p>임계값은 "셀럽 한 번의 게시가 시스템에 가하는 fan-out 부하 vs 그 셀럽의 모든 팔로워가 읽기 시 병합 비용"의 교차점이다. 임계값을 낮추면 쓰기 부하가 줄지만 읽기 병합이 많아진다. <strong>이 임계값을 설정값으로 두고 관측하며 조정</strong>한다는 점까지 말하면 Staff다 - 정답이 아니라 조절 가능한 파라미터임을 아는 것.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>하이브리드 분기의 경계는 <strong>"셀럽 한 번의 게시 fan-out 비용 vs 그 셀럽의 모든 팔로워가 읽기마다 병합하는 비용"의 교차점</strong>이다. 임계값 이상의 팔로워를 가진 사용자는 push 비용이 pull 병합 비용보다 커지므로 push에서 빼는 것이다.</p><p>이 임계값은 고정값이 아니라 <strong>관측하며 튜닝하는 파라미터</strong>다 — 팔로워당 평균 읽기 빈도(활성도)에 따라 교차점이 움직이기 때문이다. Staff 답변은 "10만으로 했다"에서 끝나지 않고 "이 값을 대시보드로 모니터링하며 fan-out worker 지연과 읽기 병합 지연을 균형 있게 유지하도록 조정한다"까지 간다. 정답이 아니라 조절 가능한 다이얼임을 아는 것이 핵심.</p></div>
+  </details>
 </section>
 
 <section id="s7">
@@ -348,6 +362,9 @@
       <li>timeline Redis를 클러스터링하고 hot user의 파티션을 복제하여 읽기 부하 분산.</li>
     </ul>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>hot-key 문제의 본질은 <strong>"단일 키에 대한 읽기/쓰기가 한 파티션에 몰려 그 파티션만 포화된다"</strong>는 것이다. 셀럽의 최근 트윗 캐시는 모든 팔로워가 동시에 읽으려 해서 한 Redis 노드가 뜨거워진다.</p><p>해결은 <strong>"논리적으로 하나인 데이터를 물리적으로 여러 복제본으로 나누기"</strong>다 — 셀럽 트윗 캐시를 N개 복제하고 읽기를 라운드로빈으로 분산. 또한 읽기 시 병합 비용이 팔로워 전체에 걸쳐 누적되므로, 병합을 캐시하거나(사용자별로 병합 결과를 짧은 TTL로 캐시) 백그라운드에서 미리 병합. 핵심 통찰: <strong>hot-key는 제거되지 않고 분산될 뿐</strong>이다.</p></div>
+  </details>
 </section>
 
 <section id="s8">
@@ -362,6 +379,9 @@
     <div class="label">Staff signal - 병목의 이동</div>
     <p>"fan-out-on-write로 읽기를 O(1)로 만들면 병목이 쓰기/워커/Redis 용량으로 옮겨간다" - 해결이 병목을 제거하는 게 아니라 <strong>옮긴다</strong>는 점을 말하는 것이 핵심이다. 각 병목에 대응책을 하나씩 매핑한다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>병목 이동의 구체적 사슬: (1) 읽기 경로 병목 → 사전 계산(fan-out-on-write)으로 해결 → 병목은 <strong>fan-out worker CPU</strong>로 이동. (2) worker 병목 → Kafka 파티션 + autoscale로 해결 → 병목은 <strong>timeline Redis 용량</strong>으로 이동. (3) Redis 용량 → 사용자당 cap으로 해결 → 병목은 <strong>비활성 사용자 처리 낭비</strong>로 이동(지연 계산으로 해결).</p><p>이 사슬을 보여주는 것이 핵심이다. 각 해결은 병목을 <strong>없애는 게 아니라 다른 곳으로 옮긴다</strong>는 점, 그리고 언젠가 어디서든 또 막힐 것이라는 점을 인정하는 것이 Staff 시그널이다. "다 풀었다"는 답은 신뢰받지 못한다.</p></div>
+  </details>
 </section>
 
 <section id="s9">
@@ -381,6 +401,9 @@
     <div class="label">Staff signal - 정합성 경계</div>
     <p>정합성의 경계는 <span class="inline-mono">tweet-published</span> 이벤트다. 그 이전(트윗 저장)은 강하게 동기, 이후(fan-out)는 최종적. <strong>이 경계를 어디에 긋느냐</strong>가 삭제 전파, 재시도 멱등성, read-your-writes 비용을 모두 결정한다 - 경계 자체가 설계 결정이라는 점을 짚는다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p><span class="inline-mono">tweet-published</span> 이벤트가 정합성 경계인 이유: 그 이전(Tweet Service가 DB에 저장)은 트랜잭션으로 강하게 보장되고, 그 이후(fan-out worker가 타임라인에 push)는 비동기·최종적이다. 이 경계 위치가 <strong>삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정</strong>한다.</p><p>예: 삭제는 tombstone 이벤트로 fan-out worker가 각 타임라인에서 제거해야 하는데, 이는 "삭제도 최종적"임을 의미한다 — 짧은 시간 창에선 이미 삭제된 트윗이 타임라인에 남을 수 있다. 그래서 읽기 시 필터링(tombstone 체크)을 안전망으로 둔다. 경계를 다른 곳(예: fan-out을 동기로)으로 옮기면 정합성은 강해지지만 응답 지연이 커진다 — <strong>경계 자체가 튜닝 가능한 설계 결정</strong>임을 아는 것이 Staff다.</p></div>
+  </details>
 </section>
 
 <section id="s10">
@@ -391,6 +414,9 @@
     <li><strong>비용 vs 성능</strong>: 모든 사용자 타임라인을 사전 계산하면 비활성 사용자에 낭비. 임계/지연 계산으로 비용 절감.</li>
     <li><strong>범용 트레이드오프</strong>: fan-out-on-write의 "읽기 O(1) ↔ 셀럽 폭발"과 fan-out-on-read의 "쓰기 O(1) ↔ 읽기 폭발"을 <strong>사용자 유형별로 분기</strong>해 둘 다 회피 - 이 분기 자체가 설계의 핵심 기여다.</li>
   </ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>이 시스템의 핵심 설계 기여는 "push vs pull 중 하나를 고르라"는 이분법을 <strong>거부하고 사용자 유형별로 분기</strong>한 것이다. 일반 사용자는 push, 셀럽은 pull(읽기 시 병합). 이 분기 덕에 push의 장점(읽기 O(1))과 pull의 장점(셀럽 쓰기 폭발 회피)을 동시에 취한다.</p><p>이 패턴은 다른 시스템에도 적용된다 — "작업 비용이 항목별로 극단적으로 다를 때, 단일 전략 대신 항목 분류별로 다른 전략을 적용하라"는 일반화된 설계 원칙이다. Staff는 이 사례에서 <strong>원칙을 추출해 다른 문제에 적용</strong>할 수 있음을 보여준다.</p></div>
+  </details>
 </section>
 
 <section id="s11">
@@ -401,6 +427,9 @@
     <li><strong>알림/런북</strong>: lag 임계, hot-key 경보, Redis 페일오버 런북.</li>
     <li><strong>기능 플래그</strong>: 셀럽 임계값·fan-out 동기/비동기 전환을 플래그로 두어 장애 시 우아한 강등.</li>
   </ul>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>가장 의미 있는 단일 메트릭은 <strong>"게시 → 첫 팔로워 도달 시간"</strong>이다 — 결과적 정합성의 실제 지연을 사용자 관점에서 측정한다. 이 값이 몇 초를 넘으면 "방금 올린 트윗이 안 보인다"는 불만으로 이어진다.</p><p>fan-out worker lag는 "밀려있는 작업량"을, Redis 히트율은 "사전 계산이 읽기를 흡수하고 있는가"를 각각 알려준다. <strong>기능 플래그</strong>로 셀럽 임계값이나 fan-out 동기/비동기를 런타임에 전환할 수 있게 두면, 장애 중 한 파라미터만 바꿔 시스템을 강등시킬 수 있다 — 코드 배포 없이. 이것이 "관측만"이 아니라 "운영"이 되는 지점이다.</p></div>
+  </details>
 </section>
 
 <section id="s12">
@@ -410,6 +439,9 @@
     <div class="label">한 줄 정합성 입장</div>
     <p>타임라인 = 결과적 + 읽기 O(1); 내 트윗 = read-your-writes; 트윗 저장/팔로우 = ACID 강정합. 세 도메인에 각각 다른 정합성을 적용하고 그 이유를 말한다.</p>
   </div>
+  <details class="deep"><summary>상세 설명 <span class="chev">&#9656;</span></summary>
+    <div class="deep-body"><p>요약의 핵심은 단일 결정(<strong>타임라인 사전 계산</strong>)이 시스템 전체를 지배한다는 것이다 — 읽기:쓰기 100:1이라는 비대칭을 잡아내어 읽기를 O(1)로 만들되, 그 비용이 셀럽에게서 폭발하는 것을 사용자 유형별 분기로 회피한다.</p><p>정합성 경계(<span class="inline-mono">tweet-published</span>)를 어디에 긋느냐가 삭제 전파·재시도 멱등성·read-your-writes 비용을 모두 결정한다는 점까지 말하면 Staff다 — 한 결정이 다른 시스템 요구사항을 강제하는 연쇄를 보여주는 것이 이 문제의 진정한 답이다. "분기를 했다"에서 끝나지 않고 "그 분기가 강제하는 비용이 어디서 나타나는지"까지 답해야 한다.</p></div>
+  </details>
 </section>
 
 <footer class="foot">
@@ -419,12 +451,29 @@
 </main>
 </div>
 
+<button class="theme-toggle" type="button" aria-label="Toggle color theme" title="색상 테마 전환">
+  <span class="icon icon-moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+  <span class="icon icon-sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+  <span class="label">Dark</span>
+</button>
 <script>
-  // active TOC highlight on scroll
-  const links=[...document.querySelectorAll('nav.toc a')];
-  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
-  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const m=links.find(l=>l.getAttribute('href')==='#'+e.target.id);if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
-  secs.forEach(s=>s&&obs.observe(s));
+  (function(){
+    var root=document.documentElement,KEY='si-theme';
+    var btn=document.querySelector('.theme-toggle');
+    var label=btn&&btn.querySelector('.label');
+    function sync(){var dark=root.getAttribute('data-theme')==='dark';if(label)label.textContent=dark?'Light':'Dark';}
+    if(btn)btn.addEventListener('click',function(){
+      var dark=root.getAttribute('data-theme')==='dark';
+      if(dark){root.removeAttribute('data-theme');try{localStorage.setItem(KEY,'light')}catch(e){}}
+      else{root.setAttribute('data-theme','dark');try{localStorage.setItem(KEY,'dark')}catch(e){}}
+      sync();
+    });
+    sync();
+  })();
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))});
+  var obs=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(l){l.classList.remove('active')});var m=links.find(function(l){return l.getAttribute('href')==='#'+e.target.id});if(m)m.classList.add('active');}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(function(s){if(s)obs.observe(s)});
 </script>
 </body>
 </html>
