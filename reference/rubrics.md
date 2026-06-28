@@ -1,8 +1,9 @@
 # BEHAVIORAL + CODING RUBRICS, probing banks, and PLAN structure
 
-System design has a single canonical model answer (`reference/system-design-model-answer.md`).
-Behavioral and coding have no one canonical answer, so Grade compares against the rubric's "what good
-looks like" rather than a verbatim mirror.
+System design has a single canonical HTML model answer (`reference/system-design-model-answer.html`);
+`reference/system-design-model-answer.md` is maintenance source text. Behavioral and coding have no one
+canonical answer, so Grade compares against the rubric's "what good looks like" rather than a verbatim
+mirror.
 
 ---
 
@@ -15,8 +16,9 @@ about real work. STAR (Situation, Task, Action, Result) is the spine; the rubric
 
 1. **Structure (STAR)** - Clear Situation -> Task -> Action -> Result. The listener never loses the
    thread. Did they OWN the story, or ramble?
-2. **Specificity** - Concrete, not generic. Real names, real numbers, real constraints. "Led 4 people
-   over 6 weeks to cut p99 from 800ms to 200ms" beats "improved performance."
+2. **Specificity** - Concrete, not generic. Use anonymized roles, numbers, constraints, and outcomes;
+   avoid real names, confidential client names, or private coworker details. "Led 4 people over 6 weeks
+   to cut p99 from 800ms to 200ms" beats "improved performance."
 3. **"I" vs "we"** - Actions attributed to the candidate personally. "We shipped" is a flag; "I decided
    to X, which let the team Y" is the bar. Probe: "what was YOUR specific contribution?"
 4. **Conflict / ambiguity handled** - Did they show how they navigated disagreement, unclear
@@ -33,6 +35,21 @@ about real work. STAR (Situation, Task, Action, Result) is the spine; the rubric
 - "What was the hardest disagreement, and how did you resolve it?"
 - "If you re-did it today, what would you change?"
 - "What did this cost you? What did you have to give up?"
+
+## Grade output format (Behavioral)
+
+```
+BEHAVIORAL grade  -  <total>/12  (bar: <level>)
+1 Structure (STAR)                 <0-2>  <one-line evidence>
+2 Specificity                      <0-2>  <evidence>
+3 "I" vs "we"                      <0-2>  <evidence>
+4 Conflict / ambiguity handled     <0-2>  <evidence>
+5 Result + reflection              <0-2>  <evidence>
+6 Signal-to-noise / time           <0-2>  <evidence>
+
+FIRST gap: <dimension> - <what was thin> -> <concrete one-line fix>
+Re-drill target: <dimension> with a novel behavioral prompt: <the new prompt>
+```
 
 ## Common behavioral prompts
 
@@ -72,12 +89,28 @@ whole arc, not just "does it compile."
 - "You assumed X - is that always true?"
 - "Brute force first - then optimize. Why this data structure?"
 
+## Grade output format (Coding)
+
+```
+CODING grade  -  <total>/12  (bar: <level>)
+1 Clarify before coding            <0-2>  <one-line evidence>
+2 Approach / tradeoff              <0-2>  <evidence>
+3 Correctness                      <0-2>  <evidence>
+4 Code quality                     <0-2>  <evidence>
+5 Testing / verification           <0-2>  <evidence>
+6 Communication & pace             <0-2>  <evidence>
+
+FIRST gap: <dimension> - <what was thin> -> <concrete one-line fix>
+Re-drill target: <dimension> with a novel coding problem or constraint: <the new prompt>
+```
+
 ---
 
 # PLAN mode - build a time-boxed prep plan
 
-When the user asks for a study/prep plan rather than a mock, build a time-boxed plan (no answer is
-written for them). Structure:
+When the user asks for a study/prep plan rather than a mock, build a time-boxed plan. Do not write an
+interview answer or model solution for them; write the schedule and drills that make them perform.
+Structure:
 
 1. **Target.** Role/level, company tier, interview mix (system design %, behavioral %, coding %),
    timeline (e.g. "4 weeks", "weekend crash").
