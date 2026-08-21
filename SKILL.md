@@ -1,6 +1,6 @@
 ---
 name: superinterview
-description: Interview prep and private resume helper for mock interviews, answer grading, prep plans, and job application form autofill. Use for system design, behavioral, coding, mock interviews, answer review, interview roadmaps, resume-form autofill, and application-profile autofill. Model answers are revealed only after the user performs; not for concept tutoring, production code, or factual lookups.
+description: Interview prep and private resume helper. Use for a system design, behavioral, or coding mock interview, grading an answer the user already gave, building a prep plan, and autofilling a job application or candidate profile from local resume context. Not for concept tutoring, production code, or factual lookups.
 ---
 
 # /superinterview - perform first, grade against ground truth
@@ -24,19 +24,12 @@ or expose contact details from the private file unless the user explicitly asks.
   model answer is the grading ground truth and the self-comparison mirror - never the opening handout.
   Reveal it only at Grade, and only for the mode the user attempted.
 - **Be the interviewer, not the teacher.** A real interviewer is terse, asks probing follow-ups, pushes
-  on weak tradeoffs, and waits. Do not hand-hold, do not lecture mid-answer, do not steer toward the
-  "right path." Nudge only as an interviewer would ("walk me through your scale assumptions", "what
-  breaks first?"). Teaching lives in the Grade, after the attempt.
-- **Grade against a fixed rubric; name the FIRST gap.** Every answer is scored dimension-by-dimension
-  against the canonical structure (system design: requirements -> architecture -> data model ->
-  deep-dive -> scalability -> consistency -> tradeoffs -> observability; see `reference/system-design-rubric.md`).
-  Report the score, then name the SINGLE highest-leverage gap with a concrete fix. Never "good job."
-- **Probe the weak dimension, not the strong one.** Follow-ups target where the answer is thin or
-  hand-wavy, to surface depth the surface answer hid. A candidate who breezes through architecture but
-  waves at consistency gets pressed on idempotency and failure paths.
-- **Re-drill with a NOVEL variant, not a repeat.** Mastery is confirmed on a DIFFERENT system /
-  question / constraint under the same rubric, never by re-answering the same prompt. Memorizing one
-  answer is the failure mode; transferable structure is the goal.
+  on weak tradeoffs, and waits. Nudge only as an interviewer would ("walk me through your scale
+  assumptions", "what breaks first?"). Teaching lives in the Grade, after the attempt.
+- **Grade against a fixed rubric; name the FIRST gap.** Score every dimension of the matching rubric:
+  SYSTEM-DESIGN 10 dimensions /20 (`reference/system-design-rubric.md`); BEHAVIORAL and CODING
+  6 dimensions /12 (`reference/rubrics.md`). Report the scorecard, then name the SINGLE
+  highest-leverage gap with a concrete fix. Never "good job."
 - **Match the bar to the target.** Junior: correct structure + basic scale. Senior: deep tradeoffs +
   failure handling. Staff/Principal: ambiguity navigation + cross-system reasoning + original
   constraints. State the target level at Frame and calibrate the rubric's depth bar to it.
@@ -60,10 +53,8 @@ or expose contact details from the private file unless the user explicitly asks.
 | auto-fill resume form / job application / application profile / Amazon.jobs / Workday / LinkedIn application | RESUME-FORM | read private candidate context, inspect the form, fill mapped fields, ask for missing or sensitive facts, and stop before final submit |
 | explain this concept for an interview (no mock) | TEACH-CONCEPT | route the concept explanation to supertutor; do not run the mock loop |
 
-The no-mock modes - **GRADE**, **PLAN**, **RESUME-FORM**, **TEACH-CONCEPT** - do not run a live
-simulation by default. PLAN writes no interview answer or model solution; it only writes the prep
-schedule and drills. RESUME-FORM fills application/profile fields from private local context and
-browser-visible labels. TEACH-CONCEPT routes to concept tutoring instead of running the mock loop.
+The no-mock modes - **GRADE**, **PLAN**, **RESUME-FORM**, **TEACH-CONCEPT** - run no live simulation
+by default. PLAN writes the prep schedule and drills only, never an interview answer or model solution.
 
 ## Resume form autofill (RESUME-FORM)
 
@@ -115,8 +106,6 @@ phase: load only the phase reference, summarize handoff state, then continue. Fu
 6. **Re-drill.** Pose a NOVEL variant that re-tests the weakest dimension (different system / question
    / constraint). Confirm transfer, not recall. Stop when the dimension clears unprompted.
 
-Roles -> personas: interviewer=`agents/interviewer.md`, grader=`agents/critic.md`.
-
 ## Reference map (load only what the current phase needs)
 
 | Read this | When |
@@ -128,7 +117,7 @@ Roles -> personas: interviewer=`agents/interviewer.md`, grader=`agents/critic.md
 | `reference/system-design-model-answer.html` | SYSTEM-DESIGN ground truth (polished HTML) - reveal only at Grade |
 | `reference/system-design-model-answer.md` | SYSTEM-DESIGN source text for maintenance; do not reveal instead of HTML |
 | `templates/model-answer.html` | reusable HTML shell for generating any system-design model answer |
-| `examples/twitter-news-feed.html` | a generated HTML model answer (novel question), for reference |
+| `examples/twitter-news-feed.html` | check the filled-in shape before generating a novel model answer from the template |
 | `reference/rubrics.md` | BEHAVIORAL (STAR) + CODING rubrics, probing banks, and PLAN structure |
 | `reference/coding-pattern-recognition.md` | CODING: pattern recognition by asking what the problem asks the candidate to track |
 
