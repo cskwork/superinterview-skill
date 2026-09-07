@@ -1,6 +1,6 @@
 ---
 name: superinterview
-description: Interview prep and private resume helper. Use for a system design, behavioral, or coding mock interview, grading an answer the user already gave, building a prep plan, and autofilling a job application or candidate profile from local resume context. Not for concept tutoring, production code, or factual lookups.
+description: Run mock interviews, grade answers against rubrics, plan preparation, and re-drill weak areas in system design, behavioral, or coding interviews. Also fill recruiting forms from source-backed resume facts, stopping before final submission.
 ---
 
 # /superinterview - perform first, grade against ground truth
@@ -56,6 +56,8 @@ or expose contact details from the private file unless the user explicitly asks.
 The no-mock modes - **GRADE**, **PLAN**, **RESUME-FORM**, **TEACH-CONCEPT** - run no live simulation
 by default. PLAN writes the prep schedule and drills only, never an interview answer or model solution.
 
+When delegating to `agents/critic.md`, pass the selected mode, interview type, target level, user's requested deliverable, and supplied answer. Standalone GRADE does not require a new attempt or re-drill; include a model comparison only within the requested grading scope.
+
 ## Resume form autofill (RESUME-FORM)
 
 Use this when the user asks to fill a job application, resume form, candidate profile, or recruiting
@@ -80,10 +82,7 @@ not to coach or improve the resume mid-flow.
 
 ## Default loop (SYSTEM-DESIGN / BEHAVIORAL / CODING / MOCK)
 
-Use fresh-context subagents for each role when available (the dispatching agent is the "conductor");
-a single quick GRADE of one short answer runs inline. If subagents are unavailable, run inline by
-phase: load only the phase reference, summarize handoff state, then continue. Full contract:
-`reference/mock-loop.md`.
+Keep the live interviewer inline. Use a fresh critic at Grade when independent gap detection adds value; a quick GRADE of one short answer runs inline. If subagents are unavailable, switch roles by phase and re-read the answer against the rubric. Load only the current phase reference. Full contract: `reference/mock-loop.md`.
 
 1. **Frame.** Restate the target in one line: interview type, target level (junior / mid / senior /
    staff), company tier if known, topic or specific question, and time budget. If private candidate
@@ -121,9 +120,11 @@ phase: load only the phase reference, summarize handoff state, then continue. Fu
 | `reference/rubrics.md` | BEHAVIORAL (STAR) + CODING rubrics, probing banks, and PLAN structure |
 | `reference/coding-pattern-recognition.md` | CODING: pattern recognition by asking what the problem asks the candidate to track |
 
-**Session complete =** mode stated; user performed the full answer under realistic time before any
+**Mock session complete =** mode stated; user performed the full answer under realistic time before any
 reveal; dimension-scored against the matching rubric; FIRST gap named with a concrete fix; model
 answer revealed or offered as a polished standalone HTML page for self-comparison; weakest dimension
 re-drill posed on a novel variant.
+
+No-mock modes finish at their own deliverable: GRADE returns a scorecard and first gap; PLAN returns the schedule; RESUME-FORM returns the filled draft and remaining blockers before submission; TEACH-CONCEPT hands off the explanation. Do not require a mock attempt for these modes.
 
 **Mastery confirmed =** the re-drill clears unprompted on the novel variant.
