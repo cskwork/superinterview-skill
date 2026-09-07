@@ -20,7 +20,8 @@
       "expectations": [
         "Classifies the request as GRADE and does not start a new mock.",
         "Scores all 10 system-design dimensions with one-line evidence.",
-        "Uses reference/system-design-model-answer.html for self-comparison rather than the Markdown source."
+        "Uses reference/system-design-model-answer.html for self-comparison rather than the Markdown source.",
+        "Finishes standalone GRADE without posing a new interview question or requiring a re-drill unless the user requests further practice."
       ]
     },
     {

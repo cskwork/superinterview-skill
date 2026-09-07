@@ -20,14 +20,9 @@ at Grade from `templates/model-answer.html`. If file writes are allowed, save it
 `superinterview-model-answer-<slug>.html` in the current workspace; otherwise return a fenced `html`
 block or a concise rendered summary. Model answers are always delivered as HTML, never as raw markdown.
 
-## Roles (each role = a fresh-context subagent by default)
+## Roles
 
-Dispatch is the default when subagents are available: the conductor runs each role as a separate
-fresh-context subagent so the role's references load inside the subagent and never accumulate in the
-conductor's window. The subagent returns only a short structured result - the posed question, the
-scorecard, the gap, the re-drill - not its transcript. A single quick GRADE of one short answer runs
-inline. If subagents are unavailable, run inline by phase: load only the phase reference, summarize the
-handoff state, then continue. Full personas: `agents/interviewer.md`, `agents/critic.md`.
+Keep the live interviewer inline. Use a fresh critic at Grade when independent gap detection adds value; a quick GRADE of one short answer runs inline. If subagents are unavailable, switch roles by phase and re-read the answer against the rubric. Load only the current phase reference. Pass the mode, interview type, target level, requested deliverable, and answer to a delegated critic. For this live-practice loop it returns the scorecard, first gap, and re-drill, not its full transcript; standalone GRADE follows its own completion scope. Personas: `agents/interviewer.md`, `agents/critic.md`.
 
 1. **Interviewer** (`agents/interviewer.md`) - poses the question as a real interviewer would (terse,
    one prompt, no structure hints), then runs Probe. Owns Pose + Probe.
